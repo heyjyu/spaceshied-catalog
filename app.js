@@ -13,7 +13,7 @@ let suggestItems = [];   // 자동완성 후보 [{text, lc, type, key}]
 let suggestSel = -1;     // 키보드 선택 인덱스
 
 // 현재 필터 상태
-const filterState = { search: "", facets: {}, stock: "", favOnly: false };
+const filterState = { search: "", facets: {}, stock: "", favOnly: false, category: "" };
 
 const $ = (id) => document.getElementById(id);
 
@@ -365,6 +365,7 @@ function buildView(rows) {
     renderStats();
     updateFilterCount();
     updateFavUI();
+    renderCatNav();
     setView(viewMode); // 모바일 기본 갤러리 등 현재 뷰모드 반영
   });
   table.on("rowClick", (e, row) => {
@@ -376,6 +377,7 @@ function buildView(rows) {
 
 // ---- 필터 ----------------------------------------------------------
 function matchRow(data) {
+  if (filterState.category && productCategory(data) !== filterState.category) return false;
   if (filterState.favOnly && !isFav(data)) return false;
   if (filterState.search) {
     const term = filterState.search.toLowerCase();
@@ -448,6 +450,57 @@ function renderStats() {
   $("stats").innerHTML = cards.map((c) =>
     `<div class="stat-card"><div class="label">${c.label}</div>` +
     `<div class="value ${c.cls || ""}">${c.value}</div></div>`).join("");
+}
+
+// ---- 제품 카테고리 (스트랩 / 케이스 / 액세서리) --------------------
+//  "케이스는 케이스끼리, 스트랩은 스트랩끼리" — 사이드바에서 종류별로 본다.
+function materialKey() {
+  const f = facetCols.find((x) => x.label === "재질");
+  return f ? f.key : null;
+}
+function productCategory(r) {
+  const name = rowTitle(r);
+  const mk = materialKey();
+  const mat = mk ? String(r[mk] || "") : "";
+  if (/케이스|범퍼|액정|글라스|보호\s?필름|필름/.test(name) || ["강화유리", "사생활 강화유리"].includes(mat)) return "케이스";
+  if (/충전|케이블|어댑터|거치|클리너|공구|USB/i.test(name)) return "액세서리";
+  return "스트랩";
+}
+const CAT_ICON = { "전체": "▦", "스트랩": "⌚", "케이스": "🛡", "액세서리": "🔌" };
+function renderCatNav() {
+  const nav = $("catNav");
+  if (!nav) return;
+  const counts = { 스트랩: 0, 케이스: 0, 액세서리: 0 };
+  for (const r of allRows) counts[productCategory(r)]++;
+  const cats = ["전체"];
+  for (const c of ["스트랩", "케이스", "액세서리"]) if (counts[c]) cats.push(c);
+  nav.innerHTML = cats.map((c) => {
+    const n = c === "전체" ? allRows.length : counts[c];
+    const on = (filterState.category || "전체") === c;
+    return `<button class="cat-item${on ? " active" : ""}" data-cat="${c === "전체" ? "" : esc(c)}">
+      <span class="ic">${CAT_ICON[c] || "•"}</span><span class="lbl">${esc(c)}</span><span class="cnt">${n.toLocaleString("ko-KR")}</span>
+    </button>`;
+  }).join("");
+  nav.querySelectorAll(".cat-item").forEach((el) => {
+    el.addEventListener("click", () => {
+      filterState.category = el.dataset.cat;
+      nav.querySelectorAll(".cat-item").forEach((x) => x.classList.toggle("active", x === el));
+      applyFilters();
+      closeSidebar();
+    });
+  });
+}
+
+// 사이드바 드로어(모바일)
+function toggleSidebar() {
+  const open = $("sidebar").classList.toggle("open");
+  $("sidebarBackdrop").classList.toggle("open", open);
+  const b = $("btnFilters"); if (b) b.setAttribute("aria-expanded", open ? "true" : "false");
+}
+function closeSidebar() {
+  $("sidebar").classList.remove("open");
+  $("sidebarBackdrop").classList.remove("open");
+  const b = $("btnFilters"); if (b) b.setAttribute("aria-expanded", "false");
 }
 
 // ---- 갤러리 뷰 ------------------------------------------------------
@@ -781,11 +834,9 @@ function init() {
     applyFilters();
   });
 
-  // 모바일: 필터 패널 접기/펴기
-  $("btnFilters").addEventListener("click", () => {
-    const open = $("filters").classList.toggle("open");
-    $("btnFilters").setAttribute("aria-expanded", open ? "true" : "false");
-  });
+  // 모바일: 사이드바(카테고리+필터) 드로어 열기/닫기
+  $("btnFilters").addEventListener("click", toggleSidebar);
+  $("sidebarBackdrop").addEventListener("click", closeSidebar);
 
   // 모바일은 표 뷰가 좁아 첫 컬럼만 보임 → 기본 갤러리
   if (window.matchMedia("(max-width: 640px)").matches) viewMode = "gallery";

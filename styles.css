@@ -168,6 +168,44 @@ button.btn.ghost:hover { background: #f0f0f3; }
 }
 .tabulator-row { cursor: pointer; }
 
+/* ---------- 레이아웃: 왼쪽 사이드바 + 콘텐츠 ---------- */
+.layout { display: flex; align-items: flex-start; }
+.content { flex: 1; min-width: 0; }
+.sidebar {
+  width: 248px; flex: none;
+  background: var(--panel); border-right: 1px solid var(--border);
+  position: sticky; top: 64px; max-height: calc(100vh - 64px); overflow-y: auto;
+}
+.sidebar-inner { padding: 16px 14px 28px; display: flex; flex-direction: column; gap: 16px; }
+
+/* 제품 카테고리 네비 */
+.cat-nav { display: flex; flex-direction: column; gap: 2px; }
+.cat-item {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 10px 12px; border: none; background: transparent; border-radius: 10px;
+  cursor: pointer; color: var(--text); font-size: 14px; font-weight: 600; text-align: left;
+  transition: background .12s;
+}
+.cat-item:hover { background: var(--panel-2); }
+.cat-item.active { background: var(--brand-soft); color: var(--brand); }
+.cat-item .ic { width: 20px; text-align: center; flex: none; }
+.cat-item .lbl { flex: 1; }
+.cat-item .cnt { font-size: 12px; font-weight: 700; color: var(--muted); }
+.cat-item.active .cnt { color: var(--brand); }
+
+.filter-head {
+  font-size: 12px; font-weight: 700; color: var(--muted); padding: 14px 4px 0;
+  border-top: 1px solid var(--border-soft);
+}
+
+/* 사이드바 안 필터: 세로 풀폭 */
+.sidebar .filters { flex-direction: column; flex-wrap: nowrap; padding: 0; gap: 8px; align-items: stretch; }
+.sidebar .filters select.filter,
+.sidebar .filters select.facet-select { width: 100%; min-width: 0; }
+.sidebar-actions { display: flex; flex-direction: column; gap: 8px; }
+.sidebar-actions .btn { width: 100%; justify-content: center; }
+.sidebar-backdrop { display: none; }
+
 /* ---------- 집계 ---------- */
 .stats {
   display: flex;
@@ -353,16 +391,8 @@ main { padding: 18px 24px 48px; max-width: 1400px; margin: 0 auto; }
   #btnReload .btn-label, #btnAdd .btn-label, #btnVerify .btn-label { display: none; }
   #btnReload, #btnAdd, #btnVerify { padding: 9px 13px; font-size: 16px; }
 
-  #btnFilters { display: inline-flex; }
-  .filters {
-    display: none; flex-direction: column;
-    padding: 14px; margin: 0 0 4px; gap: 10px;
-    background: var(--panel); border-bottom: 1px solid var(--border);
-  }
-  .filters.open { display: flex; }
-  .filters select.filter,
-  .filters select.facet-select { width: 100%; min-width: 0; font-size: 15px; padding: 13px 32px 13px 14px; }
-  #btnClear { width: 100%; padding: 13px; }
+  .sidebar .filters select.filter,
+  .sidebar .filters select.facet-select { font-size: 15px; padding: 13px 32px 13px 14px; }
 
   .stats { padding: 14px 14px 0; gap: 8px; overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; }
   .stat-card { min-width: 100px; padding: 11px 15px; flex: none; }
@@ -384,8 +414,21 @@ main { padding: 18px 24px 48px; max-width: 1400px; margin: 0 auto; }
 }
 @keyframes slideUp { from { transform: translateY(50px); opacity: .5; } to { transform: none; opacity: 1; } }
 
-@media (min-width: 641px) {
-  .filters { display: flex !important; }
+/* 사이드바 → 태블릿/모바일 드로어 (≤860px) */
+@media (max-width: 860px) {
+  #btnFilters { display: inline-flex; }
+  .sidebar {
+    position: fixed; top: 0; left: 0; bottom: 0; height: 100%;
+    width: 286px; max-width: 86vw; z-index: 46; max-height: none;
+    transform: translateX(-100%); transition: transform .26s cubic-bezier(.2,.7,.2,1);
+    box-shadow: var(--shadow-lg);
+  }
+  .sidebar.open { transform: none; }
+  .sidebar-backdrop {
+    display: block; position: fixed; inset: 0; background: rgba(0,0,0,.42); z-index: 45;
+    opacity: 0; pointer-events: none; transition: opacity .26s;
+  }
+  .sidebar-backdrop.open { opacity: 1; pointer-events: auto; }
 }
 
 /* ---------- 다크모드 (시스템 설정 따름) ---------- */
@@ -405,7 +448,10 @@ main { padding: 18px 24px 48px; max-width: 1400px; margin: 0 auto; }
   .view-toggle, .filters select.filter ~ * { }
   .view-toggle { background: #2c2c2e; }
   .view-toggle .btn.active { background: #48484a; }
-  .tabulator-row:hover { background: var(--brand-soft) !important; }
+  /* 다크모드 행 hover: 또렷한 밝은 글씨 + 적당한 음영 */
+  .tabulator-row:hover { background: #2e2e31 !important; }
+  .tabulator-row:hover .tabulator-cell { color: #ffffff !important; }
+  .tabulator-row:hover .size-badge { background: #15294d; color: #cfe0ff; }
   .sg-tag { background: #2c2c2e; }
 }
 

@@ -17,7 +17,7 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
         <circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
       </svg>
-      <input id="search" type="search" placeholder="소재·호환기종·색상·상품명·SKU 전체 검색…" autocomplete="off" />
+      <input id="search" type="search" placeholder="기종·재질·규격·체결·색상 검색…" autocomplete="off" />
     </div>
     <div class="topbar-actions">
       <button class="btn" id="btnFilters" aria-expanded="false" aria-controls="filters">
@@ -38,25 +38,42 @@
     </div>
   </header>
 
-  <!-- 자동 생성되는 필터 드롭다운들 (소재/호환기종/색상/사이즈 + 재고) -->
-  <section class="filters" id="filters">
-    <select id="stockFilter" class="filter">
-      <option value="">재고</option>
-      <option value="out">품절 (0)</option>
-      <option value="low">재고부족 (1~20)</option>
-      <option value="ok">정상 (21+)</option>
-    </select>
-    <button class="btn ghost" id="btnFav" title="즐겨찾기만 보기">★ 즐겨찾기 <span id="favCount">0</span></button>
-    <button class="btn ghost" id="btnClear">필터 초기화</button>
-  </section>
+  <div class="layout">
+    <!-- 왼쪽 사이드바: 카테고리 + 필터 -->
+    <aside class="sidebar" id="sidebar" aria-label="카테고리 및 필터">
+      <div class="sidebar-inner">
+        <!-- 제품 카테고리 (스트랩 / 케이스 …) — JS가 채움 -->
+        <nav class="cat-nav" id="catNav" aria-label="제품 카테고리"></nav>
 
-  <section class="stats" id="stats"></section>
+        <!-- 필터 그룹 -->
+        <div class="filter-head">필터</div>
+        <section class="filters" id="filters">
+          <select id="stockFilter" class="filter">
+            <option value="">재고</option>
+            <option value="out">품절 (0)</option>
+            <option value="low">재고부족 (1~20)</option>
+            <option value="ok">정상 (21+)</option>
+          </select>
+        </section>
 
-  <main>
-    <div id="status">데이터를 불러오는 중…</div>
-    <div id="table" class="hidden"></div>
-    <div id="gallery" class="hidden"></div>
-  </main>
+        <div class="sidebar-actions">
+          <button class="btn ghost" id="btnFav" title="즐겨찾기만 보기">★ 즐겨찾기 <span id="favCount">0</span></button>
+          <button class="btn ghost" id="btnClear">필터 초기화</button>
+        </div>
+      </div>
+    </aside>
+    <div class="sidebar-backdrop" id="sidebarBackdrop"></div>
+
+    <!-- 오른쪽 콘텐츠 -->
+    <div class="content">
+      <section class="stats" id="stats"></section>
+      <main>
+        <div id="status">데이터를 불러오는 중…</div>
+        <div id="table" class="hidden"></div>
+        <div id="gallery" class="hidden"></div>
+      </main>
+    </div>
+  </div>
 
   <!-- 상세 보기 (행/카드 클릭 시) -->
   <div id="overlay" class="hidden"></div>
