@@ -517,3 +517,9 @@ main { padding: 18px 24px 48px; max-width: 1400px; margin: 0 auto; }
 .size-badge { display: inline-block; padding: 2px 9px; border-radius: 999px; background: var(--brand-soft); color: var(--brand); font-weight: 600; font-size: 12px; }
 .cell-noimg { color: var(--border); }
 .tabulator-cell.col-fav { padding-left: 0 !important; padding-right: 0 !important; overflow: visible; text-overflow: clip; }
+
+/* 색상 옵션 갯수 뱃지 */
+.cc-badge { display: inline-block; padding: 2px 9px; border-radius: 999px; background: var(--brand-soft);
+  color: var(--brand); font-weight: 700; font-size: 12px; }
+.detail-cc { display: inline-block; margin: 0 0 12px; padding: 5px 12px; border-radius: 999px;
+  background: var(--brand-soft); color: var(--brand); font-weight: 700; font-size: 13px; }

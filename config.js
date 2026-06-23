@@ -41,8 +41,8 @@ const CONFIG = {
     // DB(영문 컬럼) → 화면(한글 헤더) 매핑. 표시 순서 = 이 순서.
     COLUMN_MAP: {
       name: "제품명", model: "기종", material: "재질", size: "규격",
-      buckle: "체결", color: "색상", image: "이미지", store_url: "네이버스토어",
-      status: "상태",
+      buckle: "체결", color: "색상", color_count: "색상수",
+      image: "이미지", store_url: "네이버스토어", status: "상태",
     },
   },
 
@@ -66,7 +66,7 @@ const CONFIG = {
   ],
 
   // 표에서 숨길 내부 컬럼(원본탭 등 손님에게 안 보일 것)
-  HIDE_COLUMNS: ["원본탭", "상태"],
+  HIDE_COLUMNS: ["원본탭", "상태", "색상수"],
 
   // 색상 버킷 → 스와치 색(표/카드에 동그라미로). 버킷과 키 맞추기.
   COLOR_HEX: {

@@ -127,6 +127,13 @@ function colorOrder(v) {
   const i = d.findIndex(([c]) => c === v);
   return i < 0 ? 999 : i;
 }
+// 색상 옵션 갯수: "색상수" 입력값 우선, 없으면 색상 목록 개수로 추정
+function colorCountOf(r) {
+  const explicit = parseInt(String(r["색상수"] || "").replace(/[^0-9]/g, ""), 10);
+  if (explicit > 0) return explicit;
+  const f = facetCols.find((x) => x.derive === "color");
+  return f ? splitVals(r[f.key]).length : 0;
+}
 
 // ---- 데이터 로딩 ----------------------------------------------------
 function sheetUrl() {
@@ -548,7 +555,10 @@ function renderGallery() {
       <div class="body">
         <div class="name">${esc(rowTitle(r))}</div>
         <div class="meta">${esc(sub)}</div>
-        <div class="row"><span class="price">${esc(price)}</span>${stockBadge}</div>
+        <div class="row">
+          ${colorCountOf(r) ? `<span class="cc-badge">${colorCountOf(r)}색상</span>` : "<span></span>"}
+          <span class="price">${esc(price)}</span>${stockBadge}
+        </div>
       </div>
     </div>`;
   }).join("");
@@ -794,6 +804,7 @@ function openDetail(r) {
       ${img ? `<img class="detail-img" src="${esc(img)}" alt="">`
             : '<div class="detail-img placeholder"></div>'}
       <h2 class="detail-title">${esc(rowTitle(r))}</h2>
+      ${colorCountOf(r) ? `<div class="detail-cc">🎨 색상 ${colorCountOf(r)}종</div>` : ""}
       <div class="attrs">${rows}</div>
       ${link ? `<a class="store-btn" href="${esc(link)}" target="_blank" rel="noopener">네이버 스토어에서 보기 ↗</a>` : ""}
       ${compatHtml}

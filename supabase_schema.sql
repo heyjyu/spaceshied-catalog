@@ -12,6 +12,7 @@ create table if not exists public.products (
   size       text default '',        -- 스트랩 규격
   buckle     text default '',        -- 체결 형태
   color      text default '',        -- 색상(옵션 나열 가능)
+  color_count int,                    -- 색상 옵션 갯수(예: 12)
   image      text default '',        -- 대표 이미지 URL
   store_url  text default '',        -- 네이버스토어 등 상품 링크
   sampling_date date,                -- 샘플링 날짜(월별 검색용)

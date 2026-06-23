@@ -183,6 +183,12 @@
             </div>
           </div></div>`;
       }
+      if (col === "color_count") {
+        return `<div class="field">
+          <label>색상 수 <span style="color:var(--muted);font-weight:400">(옵션 갯수, 예: 12)</span></label>
+          <input id="f_color_count" type="number" min="0" value="${esc(rec.color_count ?? "")}" placeholder="예) 12">
+        </div>`;
+      }
       if (col === "status") {
         const cur = rec.status || "진행";
         return `<div class="field">
@@ -250,6 +256,7 @@
       const sortV = document.getElementById("f_sort").value;
       obj.sort = sortV === "" ? null : Number(sortV);
       obj.sampling_date = document.getElementById("f_sampling_date").value || null;
+      obj.color_count = obj.color_count ? Number(obj.color_count) : null;
       if (!obj.name) { document.getElementById("saveErr").textContent = "제품명은 필수입니다."; return; }
       document.getElementById("saveErr").textContent = "저장 중…";
       let resp;
