@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>관리자 — 상품 관리</title>
   <script>document.documentElement.dataset.theme = localStorage.getItem("theme") || "light";</script>
-  <link rel="stylesheet" href="styles.css?v=2" />
+  <link rel="stylesheet" href="styles.css?v=3" />
   <style>
     .admin-wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
     .admin-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
@@ -68,7 +68,7 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-  <script src="config.js?v=2"></script>
+  <script src="config.js?v=3"></script>
   <script>
   // ====== 상수 ======
   const S = (CONFIG && CONFIG.SUPABASE) || {};
@@ -302,8 +302,14 @@
       if (isNew) resp = await sb.from(TABLE).insert(obj);
       else resp = await sb.from(TABLE).update(obj).eq("id", rec.id);
       if (resp.error) { document.getElementById("saveErr").textContent = "저장 실패: " + resp.error.message; return; }
+      signalCatalog();           // 열려 있는 카탈로그 탭 자동 갱신
       close(); await loadRows();
     });
+  }
+
+  // 다른 탭의 카탈로그(index.html)에 "데이터 바뀜" 신호 → 자동 갱신
+  function signalCatalog() {
+    try { localStorage.setItem("catalog_dirty", String(Date.now())); } catch (e) {}
   }
 
   async function delRow(rec) {
@@ -311,6 +317,7 @@
     if (!confirm(`삭제할까요?\n\n${rec.name}`)) return;
     const { error } = await sb.from(TABLE).delete().eq("id", rec.id);
     if (error) { alert("삭제 실패: " + error.message); return; }
+    signalCatalog();
     await loadRows();
   }
 

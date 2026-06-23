@@ -8,7 +8,7 @@ let allRows = [];        // 원본 데이터
 let headersAll = [];     // 전체 헤더 순서
 let colKeys = {};        // 특수 컬럼 키 {image, link, price, stock, name}
 let facetCols = [];      // [{label, key}] 자동감지된 필터 컬럼
-let viewMode = "table";  // "table" | "gallery"
+let viewMode = "gallery";  // "table" | "gallery" — 갤러리 기본
 let suggestItems = [];   // 자동완성 후보 [{text, lc, type, key}]
 let suggestSel = -1;     // 키보드 선택 인덱스
 
@@ -237,6 +237,38 @@ function loadFromSupabase() {
       setStatus("Supabase 불러오기 실패: " + err.message +
         "\nconfig.js 의 SUPABASE.URL/ANON_KEY/TABLE 과 RLS(공개 읽기) 설정을 확인하세요.", true);
     });
+}
+
+// 자동 갱신: 데이터만 다시 받아 표를 in-place 교체(필터·정렬·스크롤 유지). 조용히 실패.
+function softRefresh() {
+  if (!supabaseEnabled() || !table) return;
+  const s = CONFIG.SUPABASE;
+  const map = s.COLUMN_MAP || {};
+  const order = s.ORDER ? `&order=${encodeURIComponent(s.ORDER)}` : "";
+  fetch(`${s.URL}/rest/v1/${s.TABLE || "products"}?select=*${order}`, {
+    headers: { apikey: s.ANON_KEY, Authorization: `Bearer ${s.ANON_KEY}` },
+  })
+    .then((r) => (r.ok ? r.json() : Promise.reject(new Error("HTTP " + r.status))))
+    .then((data) => {
+      let rows = (data || []).map((rec) => {
+        const o = {};
+        for (const [col, head] of Object.entries(map)) o[head] = rec[col] != null ? String(rec[col]) : "";
+        return o;
+      }).filter((r) => Object.values(r).some((v) => String(v).trim() !== ""));
+      if (colKeys.image) {
+        rows = rows.map((r, i) => [r, i]).sort((a, b) => {
+          const ai = String(a[0][colKeys.image] || "").trim() ? 0 : 1;
+          const bi = String(b[0][colKeys.image] || "").trim() ? 0 : 1;
+          return ai - bi || a[1] - b[1];
+        }).map((x) => x[0]);
+      }
+      allRows = rows;
+      table.replaceData(rows).then(() => {
+        renderStats(); updateFilterCount(); renderCatNav();
+        if (viewMode === "gallery") setView("gallery");
+      });
+    })
+    .catch(() => {}); // 자동 갱신이라 실패해도 사용자 방해하지 않음
 }
 
 function setStatus(msg, isError) {
@@ -511,6 +543,16 @@ function productCategory(r) {
 }
 // 사이드바 카테고리 그룹: 공용은 "Nmm 일반형", 그 외는 기종 값.
 function productGroup(r) {
+  // 호환(커넥터) 기준 그룹. 공용은 베이스규격(20/22mm)으로 쪼갬.
+  const conn = String(r["호환"] || "").trim();
+  if (conn) {
+    if (/공용|공통|범용/.test(conn)) {
+      const bs = firstMm(String(r["베이스규격"] || "")) || firstMm(String(r["규격"] || "")) || firstMm(rowTitle(r));
+      return bs ? `${bs} 일반형` : "공용";
+    }
+    return conn;
+  }
+  // 호환 필드 없으면(CSV/DEMO) 기종 기준 폴백
   const modelKey = facetCols[0] && facetCols[0].key;
   const model = modelKey ? String(r[modelKey] || "").trim() : "";
   if (!model || /공용|공통|범용/.test(model)) {
@@ -566,8 +608,10 @@ function renderGallery() {
   const sizeFacet = facetCols.find((f) => f.derive === "mm");
   g.innerHTML = rows.map((r, i) => {
     const img = colKeys.image ? r[colKeys.image] : "";
-    const model = facetCols[0] ? String(r[facetCols[0].key] || "").trim() : "";
-    const material = facetCols[1] ? String(r[facetCols[1].key] || "").trim() : "";
+    const mf = facetCols.find((f) => f.label === "기종") || facetCols[0];
+    const tf = facetCols.find((f) => f.label === "재질");
+    const model = mf ? String(r[mf.key] || "").trim() : "";
+    const material = tf ? String(r[tf.key] || "").trim() : "";
     const size = sizeFacet ? (firstMm(r[sizeFacet.key]) || firstMm(rowTitle(r))) : "";
     const cc = colorCountOf(r);
     const st = STATUS_DEF[statusKey(r)];
@@ -773,8 +817,10 @@ function getCompatible(r, limit = 6) {
 function openDetail(r) {
   const img = colKeys.image ? r[colKeys.image] : "";
   const link = colKeys.link ? r[colKeys.link] : "";
-  const model = facetCols[0] ? String(r[facetCols[0].key] || "").trim() : "";
-  const material = facetCols[1] ? String(r[facetCols[1].key] || "").trim() : "";
+  const mf = facetCols.find((f) => f.label === "기종") || facetCols[0];
+  const tf = facetCols.find((f) => f.label === "재질");
+  const model = mf ? String(r[mf.key] || "").trim() : "";
+  const material = tf ? String(r[tf.key] || "").trim() : "";
   const sf = facetCols.find((f) => f.derive === "mm");
   const size = sf ? (firstMm(r[sf.key]) || firstMm(rowTitle(r))) : "";
   const st = STATUS_DEF[statusKey(r)];
@@ -935,6 +981,20 @@ function init() {
   });
   $("overlay").addEventListener("click", closeDetail);
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDetail(); });
+
+  // ---- 자동 갱신 (관리자 저장/복귀 시 카탈로그 최신화) ----
+  let lastRefresh = 0;
+  const autoRefresh = () => {
+    const now = Date.now();
+    if (now - lastRefresh < 1500) return; // 과도한 연속 갱신 방지
+    lastRefresh = now;
+    softRefresh();
+  };
+  // ① 다른 탭(관리자)에서 저장하면 localStorage 신호 → 즉시 갱신
+  window.addEventListener("storage", (e) => { if (e.key === "catalog_dirty") autoRefresh(); });
+  // ② 카탈로그 탭으로 돌아오면 갱신
+  document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") autoRefresh(); });
+  window.addEventListener("focus", autoRefresh);
 
   loadData();
 }
