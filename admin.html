@@ -8,8 +8,18 @@
   <link rel="stylesheet" href="styles.css" />
   <style>
     .admin-wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
-    .admin-top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
-    .admin-top h1 { font-size: 20px; margin: 0; flex: 1; }
+    .admin-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
+    .admin-top h1 { font-size: 21px; margin: 0; flex: none; letter-spacing: -.02em; }
+    .admin-search { position: relative; flex: 1; min-width: 200px; max-width: 440px; }
+    .admin-search svg { position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
+      width: 16px; height: 16px; color: var(--muted); pointer-events: none; }
+    .admin-search input {
+      width: 100%; padding: 11px 16px 11px 40px; border: 1px solid transparent;
+      border-radius: var(--radius-pill); background: var(--panel-2); color: var(--text);
+      font-size: 14px; outline: none; transition: background .12s, border-color .12s, box-shadow .12s; }
+    .admin-search input::placeholder { color: var(--muted); }
+    .admin-search input:focus { background: var(--panel); border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft); }
+    #adminTheme { font-size: 16px; }
     .notice { background: var(--brand-soft); border: 1px solid var(--border); border-radius: var(--radius-sm);
               padding: 14px 16px; color: var(--text); line-height: 1.6; }
     .notice code { background: rgba(0,0,0,.06); padding: 1px 6px; border-radius: 6px; }
@@ -120,8 +130,12 @@
     app.innerHTML = `
       <div class="admin-top">
         <h1>상품 관리</h1>
-        <input id="q" class="filter" placeholder="상품명 검색…" style="min-width:200px">
-        <button class="btn brand" id="addBtn">+ 새 상품</button>
+        <div class="admin-search">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+          <input id="q" placeholder="상품명 검색…">
+        </div>
+        <button class="btn icon-only" id="adminTheme" title="다크/라이트 전환" aria-label="테마 전환">🌙</button>
+        <button class="btn brand" id="addBtn">＋ 새 상품</button>
         <a class="btn" href="index.html">카탈로그</a>
         <button class="btn ghost" id="logoutBtn">로그아웃</button>
       </div>
@@ -129,6 +143,15 @@
     document.getElementById("logoutBtn").addEventListener("click", async () => { await sb.auth.signOut(); showLogin(); });
     document.getElementById("addBtn").addEventListener("click", () => openForm(null));
     document.getElementById("q").addEventListener("input", (e) => renderList(e.target.value.trim()));
+    const at = document.getElementById("adminTheme");
+    const setThemeIcon = () => { at.textContent = document.documentElement.dataset.theme === "dark" ? "☀️" : "🌙"; };
+    setThemeIcon();
+    at.addEventListener("click", () => {
+      const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+      document.documentElement.dataset.theme = next;
+      try { localStorage.setItem("theme", next); } catch (e) {}
+      setThemeIcon();
+    });
     await loadRows();
   }
 
