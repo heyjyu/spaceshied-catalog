@@ -34,8 +34,8 @@ const CONFIG = {
   //  비워두면(""), 위 SHEET_ID/DEMO 방식으로 동작(현행 유지).
   //  설정 방법: SUPABASE_SETUP.md 참고. (anon key 는 공개돼도 안전 — RLS 로 쓰기 차단)
   SUPABASE: {
-    URL: "",          // 예: https://abcd1234.supabase.co
-    ANON_KEY: "",     // 프로젝트 Settings ▸ API ▸ anon public key
+    URL: "https://tnuzqrqxptxrfozzjjek.supabase.co",
+    ANON_KEY: "sb_publishable_BSLM7lCKgpZWRtweb687og_F1RqFAYN",  // publishable key (RLS로 쓰기 차단, 공개 안전)
     TABLE: "products",
     ORDER: "sort.asc.nullslast",
     // DB(영문 컬럼) → 화면(한글 헤더) 매핑. 표시 순서 = 이 순서.
