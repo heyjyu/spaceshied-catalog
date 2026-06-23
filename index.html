@@ -19,12 +19,18 @@
       </svg>
       <input id="search" type="search" placeholder="소재·호환기종·색상·상품명·SKU 전체 검색…" autocomplete="off" />
     </div>
-    <div class="view-toggle">
-      <button class="btn active" id="btnTable">표</button>
-      <button class="btn" id="btnGallery">갤러리</button>
+    <div class="topbar-actions">
+      <button class="btn" id="btnFilters" aria-expanded="false" aria-controls="filters">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><line x1="4" y1="6" x2="20" y2="6"/><line x1="7" y1="12" x2="17" y2="12"/><line x1="10" y1="18" x2="14" y2="18"/></svg>
+        필터<span class="filter-count hidden" id="filterCount">0</span>
+      </button>
+      <div class="view-toggle">
+        <button class="btn active" id="btnTable">표</button>
+        <button class="btn" id="btnGallery">갤러리</button>
+      </div>
+      <button class="btn icon-only" id="btnReload" title="구글시트 다시 불러오기" aria-label="새로고침">↻<span class="btn-label"> 새로고침</span></button>
+      <a class="btn brand" id="btnAdd" href="add.html"><span aria-hidden="true">＋</span><span class="btn-label"> 신규 등록</span></a>
     </div>
-    <button class="btn" id="btnReload" title="구글시트 다시 불러오기">↻ 새로고침</button>
-    <a class="btn" id="btnAdd" href="add.html" style="text-decoration:none;background:var(--brand);color:#fff;border-color:var(--brand);">➕ 신규 등록</a>
   </header>
 
   <!-- 자동 생성되는 필터 드롭다운들 (소재/호환기종/색상/사이즈 + 재고) -->

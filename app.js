@@ -205,6 +205,8 @@ function buildView(rows) {
   table.on("tableBuilt", () => {
     table.setFilter(matchRow);
     renderStats();
+    updateFilterCount();
+    setView(viewMode); // 모바일 기본 갤러리 등 현재 뷰모드 반영
   });
   table.on("rowClick", (e, row) => openDetail(row.getData()));
 }
@@ -229,7 +231,25 @@ function applyFilters() {
   if (!table) return;
   table.refreshFilter();
   renderStats();
+  updateFilterCount();
   if (viewMode === "gallery") renderGallery();
+}
+
+// 활성 필터 개수(facet+재고) → 모바일 "필터" 버튼 배지
+function activeFilterCount() {
+  let n = 0;
+  for (const v of Object.values(filterState.facets)) if (v) n++;
+  if (filterState.stock) n++;
+  return n;
+}
+function updateFilterCount() {
+  const n = activeFilterCount();
+  const badge = $("filterCount");
+  const btn = $("btnFilters");
+  if (!badge || !btn) return;
+  badge.textContent = n;
+  badge.classList.toggle("hidden", n === 0);
+  btn.classList.toggle("active", n > 0);
 }
 
 function clearFilters() {
@@ -416,6 +436,15 @@ function init() {
   $("btnClear").addEventListener("click", clearFilters);
   $("btnTable").addEventListener("click", () => setView("table"));
   $("btnGallery").addEventListener("click", () => setView("gallery"));
+
+  // 모바일: 필터 패널 접기/펴기
+  $("btnFilters").addEventListener("click", () => {
+    const open = $("filters").classList.toggle("open");
+    $("btnFilters").setAttribute("aria-expanded", open ? "true" : "false");
+  });
+
+  // 모바일은 표 뷰가 좁아 첫 컬럼만 보임 → 기본 갤러리
+  if (window.matchMedia("(max-width: 640px)").matches) viewMode = "gallery";
   $("btnReload").addEventListener("click", () => {
     if (table) { table.destroy(); table = null; }
     loadData();
