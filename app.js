@@ -755,84 +755,104 @@ function getCompatible(r, limit = 6) {
   return scored.slice(0, limit).map((x) => x[1]);
 }
 
-// ---- 상세 보기 (클릭 시 이미지 + 속성값 + 호환/비슷한 제품) ---------
+// ---- 상세 보기 (탭형: 기본정보 / 컬러옵션 / 호환 / 비슷한) -----------
 function openDetail(r) {
   const img = colKeys.image ? r[colKeys.image] : "";
   const link = colKeys.link ? r[colKeys.link] : "";
-  // 이미지/링크/상품명은 위에서 따로 표시하므로 속성목록에선 제외 + 내부 컬럼(원본탭) 숨김
-  const skip = new Set([colKeys.image, colKeys.name, ...(CONFIG.HIDE_COLUMNS || [])].filter(Boolean));
-  const rows = headersAll.filter((h) => !skip.has(h)).map((h) => {
+  const model = facetCols[0] ? String(r[facetCols[0].key] || "").trim() : "";
+  const material = facetCols[1] ? String(r[facetCols[1].key] || "").trim() : "";
+  const sf = facetCols.find((f) => f.derive === "mm");
+  const size = sf ? (firstMm(r[sf.key]) || firstMm(rowTitle(r))) : "";
+  const disc = productStatus(r) === "단종";
+  const colorFacet = facetCols.find((f) => f.derive === "color");
+
+  // ① 기본정보 속성 (이미지/이름/링크/색상/숨김 컬럼 제외 — 색상은 별도 탭)
+  const skip = new Set([colKeys.image, colKeys.name, colKeys.link,
+    (colorFacet && colorFacet.key), ...(CONFIG.HIDE_COLUMNS || [])].filter(Boolean));
+  const attrs = headersAll.filter((h) => !skip.has(h)).map((h) => {
     let val = r[h];
     if (h === colKeys.price) val = won(val);
-    else if (h === colKeys.stock) {
-      const cls = stockClass(val);
-      val = cls === "out" ? "품절 (0)" : `${val}개`;
-    } else if (h === colKeys.link) {
-      val = val ? `<a href="${esc(val)}" target="_blank" rel="noopener">${esc(val)}</a>` : "";
-    } else {
-      val = esc(val);
-    }
+    else if (h === colKeys.stock) { const c = stockClass(val); val = c === "out" ? "품절 (0)" : (val ? `${val}개` : "-"); }
+    else val = esc(val);
     return `<div class="attr"><div class="k">${esc(h)}</div><div class="v">${val || "-"}</div></div>`;
   }).join("");
 
-  // ① 호환되는 다른 스트랩(같은 기종/폭) ② 비슷한 디자인(중복 제외)
-  const compatible = getCompatible(r);
-  const compatSet = new Set(compatible);
-  const similar = getSimilar(r, 6, compatSet);
-  const reco = [...compatible, ...similar];          // 클릭 매핑용 통합 배열
+  // ② 컬러 옵션
+  const colorRaw = colorFacet ? String(r[colorFacet.key] || "").trim() : "";
+  const buckets = colorBuckets(colorRaw);
+  const hex = CONFIG.COLOR_HEX || {};
+  const cc = colorCountOf(r);
+  const swHtml = buckets.length ? `<div class="dc-swatches">${buckets.map((c) =>
+    `<span class="dc-sw"><span class="swatch" style="background:${hex[c] || "#ccc"}"></span>${esc(c)}</span>`).join("")}</div>` : "";
+  const colorPane = (colorRaw || cc)
+    ? `${cc ? `<div class="detail-cc">🎨 색상 ${cc}종</div>` : ""}${swHtml}${colorRaw ? `<div class="dc-list">${esc(colorRaw)}</div>` : ""}`
+    : `<div class="dpane-empty">등록된 색상 정보가 없습니다.</div>`;
 
+  // ③ 호환 / ④ 비슷한
+  const compatible = getCompatible(r);
+  const similar = getSimilar(r, 8, new Set(compatible));
+  const reco = [...compatible, ...similar];
   const card = (o, ri) => {
     const oi = colKeys.image ? o[colKeys.image] : "";
     const osub = facetCols.slice(0, 2).map((f) => o[f.key]).filter(Boolean).join(" · ");
     return `<div class="sim-card" data-ri="${ri}">
       ${oi ? `<img src="${esc(oi)}" loading="lazy" alt="">` : '<div class="sim-noimg"></div>'}
-      <div class="sim-name">${esc(rowTitle(o))}</div>
-      <div class="sim-sub">${esc(osub)}</div>
-    </div>`;
+      <div class="sim-name">${esc(rowTitle(o))}</div><div class="sim-sub">${esc(osub)}</div></div>`;
   };
   const grid = (list, off) => `<div class="similar-grid">${list.map((o, i) => card(o, off + i)).join("")}</div>`;
-
   const b = compatBasis(r);
   const basis = b.specific ? esc(b.myModel) : (b.mySize || "");
-  const compatHtml = compatible.length ? `
-    <div class="similar-wrap compat">
-      <div class="similar-title">🔗 ${basis ? esc(basis) + "에 " : ""}맞는 다른 스트랩 ${compatible.length}개</div>
-      ${grid(compatible, 0)}
-    </div>` : "";
-  const simHtml = similar.length ? `
-    <div class="similar-wrap">
-      <div class="similar-title">🔍 비슷한 디자인 ${similar.length}개 — 헷갈리지 않게 비교하세요</div>
-      ${grid(similar, compatible.length)}
-    </div>` : "";
+  const compatPane = compatible.length
+    ? `<div class="similar-title">🔗 ${basis ? esc(basis) + "에 " : ""}맞는 다른 스트랩 ${compatible.length}개</div>${grid(compatible, 0)}`
+    : `<div class="dpane-empty">호환 정보를 찾지 못했습니다.</div>`;
+  const simPane = similar.length
+    ? `<div class="similar-title">🔍 비슷한 디자인 ${similar.length}개</div>${grid(similar, compatible.length)}`
+    : `<div class="dpane-empty">비슷한 제품이 없습니다.</div>`;
+
+  const chips = [
+    `<span class="dchip ${disc ? "disc" : "live"}">${disc ? "단종" : "출시됨"}</span>`,
+    model ? `<span class="dchip">${esc(model)}</span>` : "",
+    size ? `<span class="dchip">${esc(size)}</span>` : "",
+  ].filter(Boolean).join("");
 
   $("detail").innerHTML = `
-    <div class="detail-head">
-      <strong>상품 상세</strong>
-      <div class="detail-head-actions">
-        <button class="detail-fav${isFav(r) ? " on" : ""}" id="btnDetailFav">★ 즐겨찾기</button>
-        <button class="btn ghost" id="btnCloseDetail">✕ 닫기</button>
+    <div class="detail-tabbar">
+      <div class="detail-tabs">
+        <button class="dtab active" data-tab="info">기본 정보</button>
+        <button class="dtab" data-tab="color">컬러 옵션</button>
+        <button class="dtab" data-tab="compat">호환 스트랩</button>
+        <button class="dtab" data-tab="similar">비슷한 제품</button>
       </div>
+      <button class="dtab-close" id="btnCloseDetail" aria-label="닫기">✕</button>
     </div>
-    <div class="detail-body">
-      ${img ? `<img class="detail-img" src="${esc(img)}" alt="">`
-            : '<div class="detail-img placeholder"></div>'}
-      <h2 class="detail-title">${esc(rowTitle(r))}</h2>
-      ${colorCountOf(r) ? `<div class="detail-cc">🎨 색상 ${colorCountOf(r)}종</div>` : ""}
-      <div class="attrs">${rows}</div>
-      ${link ? `<a class="store-btn" href="${esc(link)}" target="_blank" rel="noopener">네이버 스토어에서 보기 ↗</a>` : ""}
-      ${compatHtml}
-      ${simHtml}
+    <div class="detail-main">
+      <div class="detail-imgcol">
+        ${img ? `<img class="detail-img" src="${esc(img)}" alt="">` : '<div class="detail-img placeholder"></div>'}
+        <button class="detail-fav2${isFav(r) ? " on" : ""}" id="btnDetailFav">★ 즐겨찾기</button>
+      </div>
+      <div class="detail-infocol">
+        ${material ? `<div class="detail-eyebrow">${esc(material)}</div>` : ""}
+        <h2 class="detail-title">${esc(rowTitle(r))}</h2>
+        <div class="detail-chips">${chips}</div>
+        <div class="dpane" data-pane="info"><div class="attrs">${attrs}</div>${link ? `<a class="store-btn" href="${esc(link)}" target="_blank" rel="noopener">네이버 스토어에서 보기 ↗</a>` : ""}</div>
+        <div class="dpane hidden" data-pane="color">${colorPane}</div>
+        <div class="dpane hidden" data-pane="compat">${compatPane}</div>
+        <div class="dpane hidden" data-pane="similar">${simPane}</div>
+      </div>
     </div>`;
+
+  const detail = $("detail");
+  detail.querySelectorAll(".dtab").forEach((t) => {
+    t.addEventListener("click", () => {
+      detail.querySelectorAll(".dtab").forEach((x) => x.classList.toggle("active", x === t));
+      detail.querySelectorAll(".dpane").forEach((p) => p.classList.toggle("hidden", p.dataset.pane !== t.dataset.tab));
+      const col = detail.querySelector(".detail-infocol"); if (col) col.scrollTop = 0;
+    });
+  });
   $("btnCloseDetail").addEventListener("click", closeDetail);
-  $("btnDetailFav").addEventListener("click", (e) => {
-    e.currentTarget.classList.toggle("on", toggleFav(r));
-  });
-  // 추천 카드 클릭 → 그 제품 상세로
-  $("detail").querySelectorAll(".sim-card").forEach((el) => {
-    el.addEventListener("click", () => openDetail(reco[Number(el.dataset.ri)]));
-  });
-  $("detail").querySelector(".detail-body").scrollTop = 0;
-  $("detail").classList.remove("hidden");
+  $("btnDetailFav").addEventListener("click", (e) => e.currentTarget.classList.toggle("on", toggleFav(r)));
+  detail.querySelectorAll(".sim-card").forEach((el) => el.addEventListener("click", () => openDetail(reco[Number(el.dataset.ri)])));
+  detail.classList.remove("hidden");
   $("overlay").classList.remove("hidden");
 }
 
