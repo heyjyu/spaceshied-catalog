@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>워치 스트랩 카탈로그</title>
-  <!-- 테마: 저장값 우선, 없으면 시스템 따름 (깜빡임 방지 위해 head에서 먼저 설정) -->
-  <script>document.documentElement.dataset.theme = localStorage.getItem("theme") || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");</script>
+  <!-- 테마: 저장값 우선, 없으면 라이트 기본 (깜빡임 방지 위해 head에서 먼저 설정) -->
+  <script>document.documentElement.dataset.theme = localStorage.getItem("theme") || "light";</script>
   <!-- 외부 라이브러리 (인터넷 필요). styles.css 는 Tabulator CSS 뒤에 둬야 표 커스텀이 적용됨 -->
   <link href="https://unpkg.com/tabulator-tables@5.6.1/dist/css/tabulator.min.css" rel="stylesheet" />
   <script src="https://unpkg.com/tabulator-tables@5.6.1/dist/js/tabulator.min.js"></script>
@@ -34,10 +34,10 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" aria-hidden="true"><line x1="4" y1="6" x2="20" y2="6"/><line x1="4" y1="12" x2="20" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
         </button>
       </div>
-      <button class="btn icon-only" id="btnTheme" title="다크/라이트 전환" aria-label="테마 전환">🌙</button>
       <button class="btn icon-only" id="btnReload" title="데이터 다시 불러오기" aria-label="새로고침">↻<span class="btn-label"> 새로고침</span></button>
       <a class="btn" id="btnVerify" href="verify.html" title="사진으로 포장 검수"><span aria-hidden="true">📷</span><span class="btn-label"> 포장검수</span></a>
       <a class="btn brand" id="btnAdd" href="admin.html" title="상품 추가·수정·삭제"><span aria-hidden="true">🔧</span><span class="btn-label"> 관리자</span></a>
+      <button class="btn icon-only" id="btnTheme" title="다크/라이트 전환" aria-label="테마 전환">🌙</button>
     </div>
   </header>
 
