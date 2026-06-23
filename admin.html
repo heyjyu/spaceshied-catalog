@@ -142,7 +142,7 @@
     el.innerHTML = `<div style="color:var(--muted);font-size:13px;margin-bottom:8px">${list.length}개</div>` +
       list.map((r) => `
       <div class="prod-row">
-        ${r.image ? `<img src="${esc(r.image)}" alt="">` : `<div class="noimg"></div>`}
+        ${r.image ? `<img src="${esc(r.image)}" alt="" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'noimg'}))">` : `<div class="noimg"></div>`}
         <div>
           <div class="pname">${esc(r.name)}</div>
           <div class="psub">${[r.model, r.material, r.size, r.buckle].filter(Boolean).map(esc).join(" · ")}</div>
@@ -175,7 +175,7 @@
         return `<div class="field" style="grid-column:1/-1">
           <label>${esc(label)}</label>
           <div style="display:flex;gap:12px;align-items:center">
-            <img class="thumb-preview" id="imgPreview" src="${esc(rec.image || "")}" alt="">
+            <img class="thumb-preview" id="imgPreview" alt="" onerror="this.removeAttribute('src')"${rec.image ? ` src="${esc(rec.image)}"` : ""}>
             <div style="flex:1">
               <input id="f_image" type="text" placeholder="이미지 URL (또는 아래에서 업로드)" value="${esc(rec.image || "")}">
               <input id="imgFile" type="file" accept="image/*" style="margin-top:8px;font-size:12px">
