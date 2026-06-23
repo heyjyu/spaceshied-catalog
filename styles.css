@@ -427,8 +427,14 @@ main { padding: 18px 24px 48px; max-width: 1400px; margin: 0 auto; }
   .view-toggle { flex: 1 1 auto; }
   .view-toggle .btn { flex: 1; justify-content: center; }
 
-  #btnReload .btn-label, #btnAdd .btn-label, #btnVerify .btn-label { display: none; }
-  #btnReload, #btnAdd, #btnVerify { padding: 9px 13px; font-size: 16px; }
+  /* 보조 버튼(새로고침·확장맵·파이프라인·포장검수·테마)은 라벨 숨기고 작은 정사각 아이콘 */
+  #btnReload .btn-label, #btnMap .btn-label, #btnPipeline .btn-label, #btnVerify .btn-label { display: none; }
+  #btnReload, #btnMap, #btnPipeline, #btnVerify, #btnTheme {
+    flex: none; width: 42px; height: 42px; padding: 0; justify-content: center; font-size: 18px; }
+  /* 관리자: 라벨 노출 + 한 줄 꽉 채운 파란 버튼으로 강조 (가장 중요) */
+  #btnAdd { order: 9; flex: 1 1 100%; justify-content: center; height: 48px;
+    font-size: 16px; font-weight: 800; gap: 7px; border-radius: 14px; }
+  #btnAdd .btn-label { display: inline; }
 
   .sidebar .filters select.filter,
   .sidebar .filters select.facet-select { font-size: 15px; padding: 13px 32px 13px 14px; }
@@ -493,6 +499,12 @@ main { padding: 18px 24px 48px; max-width: 1400px; margin: 0 auto; }
 [data-theme="dark"] .search-wrap input:focus { background: #1c1c1e; }
 [data-theme="dark"] .view-toggle { background: #2c2c2e; }
 [data-theme="dark"] .view-toggle .btn.active { background: #48484a; }
+/* 버튼 hover: 라이트값(#f3f3f5/#f0f0f3) 하드코딩이라 다크에서 흰배경+흰글씨로 안 보이던 것 수정.
+   브랜드(관리자)·활성 버튼은 제외해 원래 색 유지. */
+[data-theme="dark"] button.btn:hover:not(.brand):not(.active),
+[data-theme="dark"] .btn:hover:not(.brand):not(.active) { background: #2c2c2e; }
+[data-theme="dark"] button.btn.ghost:hover,
+[data-theme="dark"] .btn.ghost:hover { background: #2c2c2e; }
 /* 표 헤더: 다크에서 항상 어둡게(+hover 시 밝은 글씨 유지) */
 [data-theme="dark"] .tabulator .tabulator-header,
 [data-theme="dark"] .tabulator .tabulator-col,
