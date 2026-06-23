@@ -14,7 +14,7 @@ let suggestSel = -1;     // 키보드 선택 인덱스
 let categoryCfg = {};    // 사이드바 카테고리 설정(Supabase categories): {key:{label,sort,visible}}
 
 // 현재 필터 상태
-const filterState = { search: "", facets: {}, stock: "", favOnly: false, category: "", lifecycle: "" };
+const filterState = { search: "", facets: {}, stock: "", favOnly: false, category: "", lifecycle: "", sort: "" };
 
 // 상품 상태 5종 (런칭 매트릭스와 동일 정의/색). active=진행/출시
 const STATUS_DEF = {
@@ -278,7 +278,7 @@ function softRefresh() {
         }).map((x) => x[0]);
       }
       allRows = rows;
-      table.replaceData(rows).then(() => {
+      table.replaceData(sortedRows(rows, filterState.sort)).then(() => {
         renderStats(); updateFilterCount(); renderCatNav();
         if (viewMode === "gallery") setView("gallery");
       });
@@ -482,6 +482,35 @@ function applyFilters() {
   renderStats();
   updateFilterCount();
   if (viewMode === "gallery") renderGallery();
+}
+
+// ---- 정렬 ----------------------------------------------------------
+// 사이즈 정렬용: 첫 mm 숫자(없으면 맨 뒤로). 색상수/상태는 기존 헬퍼 재사용.
+function mmNum(r) {
+  const sf = facetCols.find((f) => f.derive === "mm");
+  const v = sf ? (firstMm(r[sf.key]) || firstMm(rowTitle(r))) : firstMm(rowTitle(r));
+  const n = parseInt(v, 10);
+  return isFinite(n) ? n : 9999;
+}
+// allRows 를 정렬한 새 배열. key="" 면 기본 순서(사진 있는 순, allRows 그대로).
+function sortedRows(rows, key) {
+  const arr = rows.slice();
+  const cmp = {
+    name:   (a, b) => String(rowTitle(a)).localeCompare(String(rowTitle(b)), "ko"),
+    size:   (a, b) => mmNum(a) - mmNum(b),
+    colors: (a, b) => colorCountOf(b) - colorCountOf(a),
+    status: (a, b) => STATUS_ORDER.indexOf(statusKey(a)) - STATUS_ORDER.indexOf(statusKey(b)),
+  }[key];
+  if (!cmp) return arr;                       // 기본: 원본(사진 있는 순) 유지
+  // 안정 정렬(동점이면 원래 순서 유지)
+  return arr.map((r, i) => [r, i]).sort((x, y) => cmp(x[0], y[0]) || x[1] - y[1]).map((p) => p[0]);
+}
+function applySort() {
+  if (!table) return;
+  table.replaceData(sortedRows(allRows, filterState.sort)).then(() => {
+    renderStats();
+    if (viewMode === "gallery") renderGallery();
+  });
 }
 
 // 활성 필터 개수(facet+재고) → 모바일 "필터" 버튼 배지
@@ -987,6 +1016,10 @@ function init() {
   searchEl.addEventListener("blur", () => setTimeout(hideSuggest, 120));
   $("stockFilter").addEventListener("change", (e) => {
     filterState.stock = e.target.value; applyFilters();
+  });
+  const sortSel = $("sortSelect");
+  if (sortSel) sortSel.addEventListener("change", (e) => {
+    filterState.sort = e.target.value; applySort();
   });
   $("btnClear").addEventListener("click", clearFilters);
   $("btnTable").addEventListener("click", () => setView("table"));

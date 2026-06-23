@@ -10,7 +10,7 @@
   <link href="https://unpkg.com/tabulator-tables@5.6.1/dist/css/tabulator.min.css" rel="stylesheet" />
   <script src="https://unpkg.com/tabulator-tables@5.6.1/dist/js/tabulator.min.js"></script>
   <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
-  <link rel="stylesheet" href="styles.css?v=6" />
+  <link rel="stylesheet" href="styles.css?v=7" />
 </head>
 <body>
   <header class="topbar">
@@ -49,6 +49,16 @@
         <!-- 제품 카테고리 (스트랩 / 케이스 …) — JS가 채움 -->
         <nav class="cat-nav" id="catNav" aria-label="제품 카테고리"></nav>
 
+        <!-- 정렬 -->
+        <div class="filter-head">정렬</div>
+        <select id="sortSelect" class="filter">
+          <option value="">기본 (사진 있는 순)</option>
+          <option value="name">이름순 (가나다)</option>
+          <option value="size">사이즈순 (mm)</option>
+          <option value="colors">색상 많은순</option>
+          <option value="status">상태순 (출시→단종)</option>
+        </select>
+
         <!-- 필터 그룹 -->
         <div class="filter-head">필터</div>
         <section class="filters" id="filters">
@@ -83,7 +93,7 @@
   <div id="overlay" class="hidden"></div>
   <aside id="detail" class="hidden" aria-label="상품 상세"></aside>
 
-  <script src="config.js?v=6"></script>
-  <script src="app.js?v=6"></script>
+  <script src="config.js?v=7"></script>
+  <script src="app.js?v=7"></script>
 </body>
 </html>
