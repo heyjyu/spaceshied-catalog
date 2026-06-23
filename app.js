@@ -306,7 +306,35 @@ function setView(mode) {
   if (mode === "gallery") renderGallery();
 }
 
-// ---- 상세 보기 (클릭 시 이미지 + 속성값) ----------------------------
+// ---- 비슷한 제품 찾기 (비주얼 비교용) ------------------------------
+function nameTokens(s) {
+  return new Set(String(s || "").split(/\s+/).filter((t) => t.length > 1));
+}
+function getSimilar(r, limit = 8) {
+  const facetKeys = facetCols.map((f) => f.key);
+  const baseTokens = nameTokens(rowTitle(r));
+  const scored = [];
+  for (const o of allRows) {
+    if (o === r) continue;
+    let s = 0;
+    // 같은 기종/재질/규격 등 facet 일치 가중
+    for (const k of facetKeys) {
+      if (r[k] && o[k] && String(r[k]) === String(o[k])) {
+        s += (k === (facetCols[0] && facetCols[0].key)) ? 3 : 2;
+      }
+    }
+    // 제품명 단어 겹침
+    const ot = nameTokens(rowTitle(o));
+    let overlap = 0;
+    baseTokens.forEach((t) => { if (ot.has(t)) overlap++; });
+    s += overlap * 2;
+    if (s > 0) scored.push([s, o]);
+  }
+  scored.sort((a, b) => b[0] - a[0]);
+  return scored.slice(0, limit).map((x) => x[1]);
+}
+
+// ---- 상세 보기 (클릭 시 이미지 + 속성값 + 비슷한 제품) --------------
 function openDetail(r) {
   const img = colKeys.image ? r[colKeys.image] : "";
   const link = colKeys.link ? r[colKeys.link] : "";
@@ -326,6 +354,24 @@ function openDetail(r) {
     return `<div class="attr"><div class="k">${esc(h)}</div><div class="v">${val || "-"}</div></div>`;
   }).join("");
 
+  // 비슷한 제품 (헷갈리는 비슷한 디자인 비주얼 비교)
+  const similar = getSimilar(r);
+  const simHtml = similar.length ? `
+    <div class="similar-wrap">
+      <div class="similar-title">🔍 비슷한 제품 ${similar.length}개 — 헷갈리지 않게 비교하세요</div>
+      <div class="similar-grid">
+        ${similar.map((o) => {
+          const oi = colKeys.image ? o[colKeys.image] : "";
+          const osub = facetCols.slice(0, 2).map((f) => o[f.key]).filter(Boolean).join(" · ");
+          return `<div class="sim-card" data-key="${esc(rowTitle(o))}|${esc(o[colKeys.image] || "")}">
+            ${oi ? `<img src="${esc(oi)}" loading="lazy" alt="">` : '<div class="sim-noimg"></div>'}
+            <div class="sim-name">${esc(rowTitle(o))}</div>
+            <div class="sim-sub">${esc(osub)}</div>
+          </div>`;
+        }).join("")}
+      </div>
+    </div>` : "";
+
   $("detail").innerHTML = `
     <div class="detail-head">
       <strong>상품 상세</strong>
@@ -337,8 +383,14 @@ function openDetail(r) {
       <h2 class="detail-title">${esc(rowTitle(r))}</h2>
       <div class="attrs">${rows}</div>
       ${link ? `<a class="store-btn" href="${esc(link)}" target="_blank" rel="noopener">네이버 스토어에서 보기 ↗</a>` : ""}
+      ${simHtml}
     </div>`;
   $("btnCloseDetail").addEventListener("click", closeDetail);
+  // 비슷한 제품 클릭 → 그 제품 상세로
+  $("detail").querySelectorAll(".sim-card").forEach((el, i) => {
+    el.addEventListener("click", () => openDetail(similar[i]));
+  });
+  $("detail").querySelector(".detail-body").scrollTop = 0;
   $("detail").classList.remove("hidden");
   $("overlay").classList.remove("hidden");
 }
