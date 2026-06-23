@@ -494,12 +494,13 @@ function moveSuggest(delta) {
 function nameTokens(s) {
   return new Set(String(s || "").split(/\s+/).filter((t) => t.length > 1));
 }
-function getSimilar(r, limit = 8) {
+function getSimilar(r, limit = 8, exclude = null) {
   const facetKeys = facetCols.map((f) => f.key);
   const baseTokens = nameTokens(rowTitle(r));
   const scored = [];
   for (const o of allRows) {
     if (o === r) continue;
+    if (exclude && exclude.has(o)) continue;
     let s = 0;
     // 같은 기종/재질/규격 등 facet 일치 가중
     for (const k of facetKeys) {
@@ -518,7 +519,39 @@ function getSimilar(r, limit = 8) {
   return scored.slice(0, limit).map((x) => x[1]);
 }
 
-// ---- 상세 보기 (클릭 시 이미지 + 속성값 + 비슷한 제품) --------------
+// ---- 호환되는 다른 스트랩 (같은 기종 또는 같은 폭mm) ----------------
+// 스트랩은 폭(20/22mm 등)·기종이 호환의 핵심. "내 시계에 맞는 다른 스트랩"을 제안.
+function compatBasis(r) {
+  const sizeFacet = facetCols.find((f) => f.derive === "mm");
+  const modelKey = facetCols[0] && facetCols[0].key; // 첫 facet = 기종
+  const myModel = modelKey ? String(r[modelKey] || "").trim() : "";
+  const specific = myModel && !/공용|공통|범용|universal/i.test(myModel);
+  const mySize = sizeFacet ? (firstMm(r[sizeFacet.key]) || firstMm(rowTitle(r))) : "";
+  return { sizeFacet, modelKey, myModel, specific, mySize };
+}
+function getCompatible(r, limit = 6) {
+  const { sizeFacet, modelKey, myModel, specific, mySize } = compatBasis(r);
+  if (!specific && !mySize) return [];
+  const baseTokens = nameTokens(rowTitle(r));
+  const scored = [];
+  for (const o of allRows) {
+    if (o === r) continue;
+    let s = 0;
+    if (specific && modelKey && String(o[modelKey] || "").trim() === myModel) s += 2;
+    if (mySize) {
+      const os = sizeFacet ? (firstMm(o[sizeFacet.key]) || firstMm(rowTitle(o))) : "";
+      if (os && os === mySize) s += 2;
+    }
+    if (s <= 0) continue;
+    let overlap = 0; const ot = nameTokens(rowTitle(o));
+    baseTokens.forEach((t) => { if (ot.has(t)) overlap++; });
+    scored.push([s * 10 + overlap, o]);
+  }
+  scored.sort((a, b) => b[0] - a[0]);
+  return scored.slice(0, limit).map((x) => x[1]);
+}
+
+// ---- 상세 보기 (클릭 시 이미지 + 속성값 + 호환/비슷한 제품) ---------
 function openDetail(r) {
   const img = colKeys.image ? r[colKeys.image] : "";
   const link = colKeys.link ? r[colKeys.link] : "";
@@ -538,22 +571,34 @@ function openDetail(r) {
     return `<div class="attr"><div class="k">${esc(h)}</div><div class="v">${val || "-"}</div></div>`;
   }).join("");
 
-  // 비슷한 제품 (헷갈리는 비슷한 디자인 비주얼 비교)
-  const similar = getSimilar(r);
+  // ① 호환되는 다른 스트랩(같은 기종/폭) ② 비슷한 디자인(중복 제외)
+  const compatible = getCompatible(r);
+  const compatSet = new Set(compatible);
+  const similar = getSimilar(r, 6, compatSet);
+  const reco = [...compatible, ...similar];          // 클릭 매핑용 통합 배열
+
+  const card = (o, ri) => {
+    const oi = colKeys.image ? o[colKeys.image] : "";
+    const osub = facetCols.slice(0, 2).map((f) => o[f.key]).filter(Boolean).join(" · ");
+    return `<div class="sim-card" data-ri="${ri}">
+      ${oi ? `<img src="${esc(oi)}" loading="lazy" alt="">` : '<div class="sim-noimg"></div>'}
+      <div class="sim-name">${esc(rowTitle(o))}</div>
+      <div class="sim-sub">${esc(osub)}</div>
+    </div>`;
+  };
+  const grid = (list, off) => `<div class="similar-grid">${list.map((o, i) => card(o, off + i)).join("")}</div>`;
+
+  const b = compatBasis(r);
+  const basis = b.specific ? esc(b.myModel) : (b.mySize || "");
+  const compatHtml = compatible.length ? `
+    <div class="similar-wrap compat">
+      <div class="similar-title">🔗 ${basis ? esc(basis) + "에 " : ""}맞는 다른 스트랩 ${compatible.length}개</div>
+      ${grid(compatible, 0)}
+    </div>` : "";
   const simHtml = similar.length ? `
     <div class="similar-wrap">
-      <div class="similar-title">🔍 비슷한 제품 ${similar.length}개 — 헷갈리지 않게 비교하세요</div>
-      <div class="similar-grid">
-        ${similar.map((o) => {
-          const oi = colKeys.image ? o[colKeys.image] : "";
-          const osub = facetCols.slice(0, 2).map((f) => o[f.key]).filter(Boolean).join(" · ");
-          return `<div class="sim-card" data-key="${esc(rowTitle(o))}|${esc(o[colKeys.image] || "")}">
-            ${oi ? `<img src="${esc(oi)}" loading="lazy" alt="">` : '<div class="sim-noimg"></div>'}
-            <div class="sim-name">${esc(rowTitle(o))}</div>
-            <div class="sim-sub">${esc(osub)}</div>
-          </div>`;
-        }).join("")}
-      </div>
+      <div class="similar-title">🔍 비슷한 디자인 ${similar.length}개 — 헷갈리지 않게 비교하세요</div>
+      ${grid(similar, compatible.length)}
     </div>` : "";
 
   $("detail").innerHTML = `
@@ -567,12 +612,13 @@ function openDetail(r) {
       <h2 class="detail-title">${esc(rowTitle(r))}</h2>
       <div class="attrs">${rows}</div>
       ${link ? `<a class="store-btn" href="${esc(link)}" target="_blank" rel="noopener">네이버 스토어에서 보기 ↗</a>` : ""}
+      ${compatHtml}
       ${simHtml}
     </div>`;
   $("btnCloseDetail").addEventListener("click", closeDetail);
-  // 비슷한 제품 클릭 → 그 제품 상세로
-  $("detail").querySelectorAll(".sim-card").forEach((el, i) => {
-    el.addEventListener("click", () => openDetail(similar[i]));
+  // 추천 카드 클릭 → 그 제품 상세로
+  $("detail").querySelectorAll(".sim-card").forEach((el) => {
+    el.addEventListener("click", () => openDetail(reco[Number(el.dataset.ri)]));
   });
   $("detail").querySelector(".detail-body").scrollTop = 0;
   $("detail").classList.remove("hidden");
