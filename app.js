@@ -13,7 +13,12 @@ let suggestItems = [];   // 자동완성 후보 [{text, lc, type, key}]
 let suggestSel = -1;     // 키보드 선택 인덱스
 
 // 현재 필터 상태
-const filterState = { search: "", facets: {}, stock: "", favOnly: false, category: "" };
+const filterState = { search: "", facets: {}, stock: "", favOnly: false, category: "", lifecycle: "" };
+
+// 상품 상태: "상태" 값이 단종이면 단종, 아니면(빈값 포함) 진행
+function productStatus(r) {
+  return String(r["상태"] || "").trim() === "단종" ? "단종" : "진행";
+}
 
 const $ = (id) => document.getElementById(id);
 
@@ -378,6 +383,7 @@ function buildView(rows) {
 // ---- 필터 ----------------------------------------------------------
 function matchRow(data) {
   if (filterState.category && productCategory(data) !== filterState.category) return false;
+  if (filterState.lifecycle && productStatus(data) !== filterState.lifecycle) return false;
   if (filterState.favOnly && !isFav(data)) return false;
   if (filterState.search) {
     const term = filterState.search.toLowerCase();
@@ -432,24 +438,31 @@ function clearFilters() {
 // ---- 통계 ----------------------------------------------------------
 function renderStats() {
   const active = table ? table.getData("active") : allRows;
-  let out = 0, low = 0;
-  if (colKeys.stock) {
-    for (const r of active) {
-      const c = stockClass(r[colKeys.stock]);
-      if (c === "out") out++; else if (c === "low") low++;
-    }
-  }
-  const cards = [
-    { label: "표시 중", value: active.length.toLocaleString("ko-KR") },
-    { label: "전체 상품", value: allRows.length.toLocaleString("ko-KR") },
-  ];
-  if (colKeys.stock) {
-    cards.push({ label: "품절", value: out, cls: out ? "danger" : "" });
-    cards.push({ label: "재고부족", value: low, cls: low ? "warn" : "" });
-  }
-  $("stats").innerHTML = cards.map((c) =>
-    `<div class="stat-card"><div class="label">${c.label}</div>` +
-    `<div class="value ${c.cls || ""}">${c.value}</div></div>`).join("");
+  const ko = (n) => n.toLocaleString("ko-KR");
+  let prog = 0, disc = 0;
+  for (const r of allRows) (productStatus(r) === "단종" ? disc++ : prog++);
+  const filtering = active.length !== allRows.length;
+
+  const cards = [];
+  if (filtering) cards.push({ label: "표시 중", value: ko(active.length), cls: "brand" });
+  cards.push({ label: "전체", value: ko(allRows.length), life: "" });
+  cards.push({ label: "진행", value: ko(prog), life: "진행", cls: "ok" });
+  cards.push({ label: "단종", value: ko(disc), life: "단종", cls: disc ? "danger" : "" });
+
+  $("stats").innerHTML = cards.map((c) => {
+    const click = c.life !== undefined;
+    const on = click && filterState.lifecycle === c.life;
+    return `<div class="stat-card${click ? " clickable" : ""}${on ? " active" : ""}"${click ? ` data-life="${esc(c.life)}"` : ""}>` +
+      `<div class="label">${c.label}</div><div class="value ${c.cls || ""}">${c.value}</div></div>`;
+  }).join("");
+
+  $("stats").querySelectorAll(".stat-card.clickable").forEach((el) => {
+    el.addEventListener("click", () => {
+      const v = el.dataset.life;
+      filterState.lifecycle = v;          // 전체="" / 진행 / 단종
+      applyFilters();
+    });
+  });
 }
 
 // ---- 제품 카테고리 (스트랩 / 케이스 / 액세서리) --------------------

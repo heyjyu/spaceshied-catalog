@@ -183,6 +183,16 @@
             </div>
           </div></div>`;
       }
+      if (col === "status") {
+        const cur = rec.status || "진행";
+        return `<div class="field">
+          <label>${esc(label)}</label>
+          <select id="f_status">
+            <option value="진행"${cur === "진행" ? " selected" : ""}>진행</option>
+            <option value="단종"${cur === "단종" ? " selected" : ""}>단종</option>
+          </select>
+        </div>`;
+      }
       if (DROPDOWN.has(col)) {
         const opts = distinctVals(col).map((v) => `<option value="${esc(v)}">`).join("");
         return `<div class="field">

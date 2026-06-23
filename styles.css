@@ -225,6 +225,12 @@ button.btn.ghost:hover { background: #f0f0f3; }
 .stat-card .value { font-size: 22px; font-weight: 700; margin-top: 3px; letter-spacing: -0.02em; }
 .stat-card .value.danger { color: var(--danger); }
 .stat-card .value.warn { color: var(--warn); }
+.stat-card .value.ok { color: var(--ok); }
+.stat-card .value.brand { color: var(--brand); }
+.stat-card.clickable { cursor: pointer; transition: border-color .12s, box-shadow .12s, transform .08s; }
+.stat-card.clickable:hover { border-color: var(--brand); }
+.stat-card.clickable:active { transform: scale(.98); }
+.stat-card.active { border-color: var(--brand); box-shadow: 0 0 0 2px var(--brand-soft); }
 
 main { padding: 18px 24px 48px; max-width: 1400px; margin: 0 auto; }
 

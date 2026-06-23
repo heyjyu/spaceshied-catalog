@@ -15,6 +15,7 @@ create table if not exists public.products (
   image      text default '',        -- 대표 이미지 URL
   store_url  text default '',        -- 네이버스토어 등 상품 링크
   sampling_date date,                -- 샘플링 날짜(월별 검색용)
+  status     text default '진행',     -- 진행 / 단종
   sort       int  default 0,         -- 정렬 순서
   created_at timestamptz default now(),
   updated_at timestamptz default now()
