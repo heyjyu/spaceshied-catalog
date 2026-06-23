@@ -16,12 +16,13 @@ RAW = "raw"
 IMG_OUT = "images"
 os.makedirs(IMG_OUT, exist_ok=True)
 
-# 상품 리스트가 아닌/깨진 탭 제외
+# 상품 리스트가 아닌/구조상 자동변환 불가한 탭만 제외
+#  - 커넥터: 스트랩 아님(부속)   - 샤인SET: 제품명 없이 구성품/별칭 구조
+#  - 레드미: 다른 시트로 리다이렉트(상품 없음)
+#  - 가민 D2.3: 제품이 '열(column)'로 들어간 전치형  - 가민전용: 미사용 탭
 SKIP_TABS = {
     "🔗 커넥터 리스트", "🌌 갤럭시_샤인 SET", "🌌 갤럭시8 러그형_샤인 SET",
-    "⭐️미밴드10 SET", "🟠레드미 워치 5 / 4 ,미밴드 9 8 프로",
-    "💝보이스캐디 Gift SET",
-    "🌌갤럭시_날개형 20mm", "🌌갤럭시_원클릭 20mm",
+    "🟠레드미 워치 5 / 4 ,미밴드 9 8 프로",
     "미사용🔴가민 전용 (퀵핏/퀵릴리즈 가민 메인형)",
     "💪 가민 D2.3 바넷봉 호환 스트랩",
 }
@@ -30,7 +31,8 @@ def clean(s):
     return re.sub(r"\s+", " ", str(s or "").replace("\x08", "")).strip()
 
 def clean_model(name):
-    n = re.sub(r"[^\w가-힣A-Za-z0-9 ~/]+", " ", name).replace("*", " ").replace("~", " ")
+    n = re.sub(r"[^\w가-힣A-Za-z0-9 ~/]+", " ", name)
+    n = n.replace("*", " ").replace("~", " ").replace("_", " ")
     return re.sub(r"\s+", " ", n).strip()
 
 # ---- 재질 정규화 ----------------------------------------------------
@@ -108,7 +110,7 @@ def find_col(cols, *keys, exclude=()):
 
 def find_header_row(rows):
     for i, r in enumerate(rows[:8]):
-        if any("제품명" in clean(c) for c in r):
+        if any(("제품명" in clean(c)) or ("상품명" in clean(c)) for c in r):
             return i
     return -1
 
@@ -128,8 +130,8 @@ def parse_tab(path, model_name, idx, anchors):
     if h < 0:
         return [], "헤더(제품명) 못 찾음"
     cols = [clean(c) for c in rows[h]]
-    ci_name = find_col(cols, "제품명")
-    ci_mat  = find_col(cols, "재질")
+    ci_name = find_col(cols, "제품명", "상품명")
+    ci_mat  = find_col(cols, "재질", "소재")
     ci_col  = find_col(cols, "컬러", "색상")
     ci_buk  = find_col(cols, "체결")
     ci_img  = find_col(cols, "이미지", "사진")
