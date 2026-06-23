@@ -138,6 +138,12 @@ def parse_tab(path, model_name, idx, anchors):
         ci_spec = find_col(cols, "사이즈", exclude=("옵션",))
     if ci_spec < 0:
         ci_spec = find_col(cols, "형태")
+    # 신규입력 탭용 추가 속성 (기존 탭엔 보통 없음 → 빈값)
+    ci_sample  = find_col(cols, "샘플링", "샘플 날짜", "샘플날짜")
+    ci_creator = find_col(cols, "제작자", "컨텐츠 제작자", "담당자")
+    ci_coupang = find_col(cols, "쿠팡 등록", "쿠팡등록")
+    ci_naver   = find_col(cols, "네이버 등록", "네이버등록")
+    ci_imgurl  = find_col(cols, "이미지url", "이미지 url", "사진url")
 
     mm = re.search(r"(\d+)\s*mm", model_name)
     tab_mm = (mm.group(1) + "mm") if (mm and "일반형" in model_name) else ""
@@ -162,13 +168,17 @@ def parse_tab(path, model_name, idx, anchors):
             continue
         if name in ("제품명", "샘플", "총 SKU"):
             continue
-        # 이미지
+        # 이미지: ①시트 삽입이미지(xlsx) 우선 ②없으면 이미지URL 칸
         img_path = ""
         mp = row_media.get(abs_row)
         if mp and os.path.exists(mp):
             dst = f"{IMG_OUT}/{idx:02d}_{abs_row}.jpg"
             if resize_image(mp, dst):
                 img_path = dst
+        if not img_path and ci_imgurl >= 0:
+            u = g(ci_imgurl)
+            if u.startswith("http"):
+                img_path = u
         out.append({
             "제품명": name,
             "기종": model,
@@ -176,6 +186,10 @@ def parse_tab(path, model_name, idx, anchors):
             "스트랩 규격": norm_spec(g(ci_spec), tab_mm),
             "체결 형태": norm_buckle(g(ci_buk), name),
             "색상": g(ci_col),
+            "샘플링날짜": g(ci_sample),
+            "컨텐츠제작자": g(ci_creator),
+            "쿠팡등록": g(ci_coupang),
+            "네이버등록": g(ci_naver),
             "이미지": img_path,
             "원본탭": clean_model(model_name),
         })
@@ -198,7 +212,11 @@ def main():
         all_rows.extend(rows)
         report.append((name, msg))
 
-    fields = ["제품명", "기종", "재질", "스트랩 규격", "체결 형태", "색상", "이미지", "원본탭"]
+    base = ["제품명", "기종", "재질", "스트랩 규격", "체결 형태", "색상"]
+    # 값이 하나라도 있으면 포함 (신규입력 탭에서 채워지면 자동 노출)
+    optional = ["샘플링날짜", "컨텐츠제작자", "쿠팡등록", "네이버등록"]
+    fields = base + [c for c in optional if any(r.get(c, "").strip() for r in all_rows)]
+    fields += ["이미지", "원본탭"]
     with open("catalog.csv", "w", encoding="utf-8", newline="") as f:
         w = csv.DictWriter(f, fieldnames=fields, extrasaction="ignore")
         w.writeheader()
