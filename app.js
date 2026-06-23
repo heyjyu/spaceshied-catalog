@@ -144,8 +144,17 @@ function ingest(headers, rows) {
     return;
   }
   headersAll = headers;
-  allRows = rows;
   detectColumns(headersAll, rows);
+  // 사진 있는 상품을 앞으로 (사진 없는 구형 상품이 위를 다 차지해 '사진 없음'처럼 보이는 것 방지).
+  // 같은 그룹 안에서는 기존 정렬 순서 유지(안정 정렬).
+  if (colKeys.image) {
+    rows = rows.map((r, i) => [r, i]).sort((a, b) => {
+      const ai = String(a[0][colKeys.image] || "").trim() ? 0 : 1;
+      const bi = String(b[0][colKeys.image] || "").trim() ? 0 : 1;
+      return ai - bi || a[1] - b[1];
+    }).map((x) => x[0]);
+  }
+  allRows = rows;
   buildView(rows);
 }
 
