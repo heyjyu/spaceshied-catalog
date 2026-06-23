@@ -3,43 +3,61 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>확장맵 — 베이스 × 커넥터 커버리지</title>
+  <title>런칭 매트릭스 — 베이스 × 커넥터 출시 현황</title>
   <script>document.documentElement.dataset.theme = localStorage.getItem("theme") || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");</script>
   <link rel="stylesheet" href="styles.css" />
   <style>
-    .map-wrap { padding: 18px 24px 60px; }
-    .map-intro { color: var(--muted); margin: 2px 0 16px; max-width: 760px; line-height: 1.55; }
-    .map-intro b { color: var(--text); }
-    .map-controls { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:14px; }
-    .map-controls .seg { display:inline-flex; background: var(--panel-2); border:1px solid var(--border); border-radius: var(--radius-pill); padding:3px; }
-    .map-controls .seg button { border:none; background:transparent; color:var(--muted); padding:6px 14px; border-radius:var(--radius-pill); cursor:pointer; font-size:13px; font-weight:600; }
-    .map-controls .seg button.on { background: var(--brand); color:#fff; }
-    .map-controls select, .map-controls input { padding:8px 12px; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--panel); color:var(--text); font-size:13px; }
-    .map-stats { display:flex; gap:10px; flex-wrap:wrap; margin-bottom:16px; }
-    .map-stat { background:var(--panel); border:1px solid var(--border); border-radius:var(--radius-sm); padding:10px 16px; box-shadow:var(--shadow-sm); }
-    .map-stat .n { font-size:22px; font-weight:800; letter-spacing:-.02em; }
+    .map-wrap { padding: 18px 24px 80px; }
+    .map-head h1 { font-size: 26px; font-weight: 800; letter-spacing: -.03em; margin: 4px 0 2px; }
+    .map-head .sub { color: var(--muted); margin: 0 0 18px; font-size: 14px; }
+
+    .map-controls { display:flex; flex-wrap:wrap; gap:14px 18px; align-items:center; margin-bottom:16px; }
+    .map-controls select, .map-controls input { padding:10px 14px; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--panel); color:var(--text); font-size:14px; min-width:160px; }
+    .legend { display:flex; flex-wrap:wrap; gap:16px; align-items:center; margin-left:auto; }
+    .legend .lg { display:inline-flex; align-items:center; gap:7px; font-size:13px; color:var(--muted); }
+    .legend .sw { width:16px; height:16px; border-radius:5px; }
+    .seg { display:inline-flex; background: var(--panel-2); border:1px solid var(--border); border-radius:var(--radius-pill); padding:3px; }
+    .seg button { border:none; background:transparent; color:var(--muted); padding:7px 15px; border-radius:var(--radius-pill); cursor:pointer; font-size:13px; font-weight:600; }
+    .seg button.on { background: var(--brand); color:#fff; }
+
+    /* 상태 색 (셀 + 레전드 공통) */
+    .sw.st-active, .cell.st-active   { background:#dcf3e4; color:#15924a; }
+    .sw.st-planned,.cell.st-planned  { background:#dbe7fe; color:#2563eb; }
+    .sw.st-partial,.cell.st-partial  { background:#fbeecb; color:#b07403; }
+    .sw.st-sampling,.cell.st-sampling{ background:#e9e1fb; color:#7c4dff; }
+    .sw.st-discont, .cell.st-discont { background:#e9e9ed; color:#9aa0a6; }
+    [data-theme="dark"] .cell.st-active   { background:#123524; color:#5fd98c; }
+    [data-theme="dark"] .cell.st-planned  { background:#16294d; color:#7eb0ff; }
+    [data-theme="dark"] .cell.st-partial  { background:#3a2c0e; color:#e6b53d; }
+    [data-theme="dark"] .cell.st-sampling { background:#2a1f47; color:#b69bff; }
+    [data-theme="dark"] .cell.st-discont  { background:#2a2a2e; color:#86868b; }
+
+    .matrix-scroll { overflow:auto; border:1px solid var(--border); border-radius:var(--radius); background:var(--panel); box-shadow:var(--shadow-sm); max-height: calc(100vh - 250px); }
+    table.matrix { border-collapse: separate; border-spacing:0; font-size:13px; width:100%; }
+    table.matrix th, table.matrix td { border-bottom:1px solid var(--border-soft); white-space:nowrap; }
+    table.matrix thead th { position:sticky; top:0; z-index:3; background:var(--panel-2); padding:12px 10px; font-weight:700; text-align:center; color:var(--muted); font-size:12.5px; }
+    table.matrix thead th .colsub { font-size:11px; color:var(--muted); font-weight:500; }
+    table.matrix thead th.base-h { left:0; z-index:4; text-align:left; min-width:250px; color:var(--text); font-size:14px; border-right:2px solid var(--border); }
+    table.matrix th.base-c { position:sticky; left:0; z-index:2; background:var(--panel); text-align:left; padding:11px 14px; font-weight:600; max-width:320px; overflow:hidden; text-overflow:ellipsis; border-right:2px solid var(--border); font-size:13.5px; }
+    table.matrix tbody tr:hover th.base-c { background: var(--brand-soft); }
+    table.matrix td { text-align:center; padding:5px; cursor:pointer; }
+    .cell { display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:8px; font-weight:800; font-size:13px; }
+    .cell .cnt { font-size:10px; margin-left:1px; font-weight:700; opacity:.75; }
+    td.empty:hover .cell-empty { background:var(--border-soft); }
+    .cell-empty { display:inline-flex; align-items:center; justify-content:center; width:30px; height:30px; border-radius:8px; color:transparent; }
+    td.empty:hover .cell-empty { color:var(--muted); }
+    td.empty:hover .cell-empty::after { content:"＋"; }
+    .base-c .exp { font-size:11px; color:var(--muted); font-weight:500; margin-left:7px; }
+
+    .map-stats { display:flex; gap:10px; flex-wrap:wrap; margin:0 0 16px; }
+    .map-stat { background:var(--panel); border:1px solid var(--border); border-radius:var(--radius-sm); padding:9px 16px; box-shadow:var(--shadow-sm); }
+    .map-stat .n { font-size:20px; font-weight:800; letter-spacing:-.02em; }
     .map-stat .l { font-size:12px; color:var(--muted); }
     .map-stat.gap .n { color: var(--warn); }
 
-    .matrix-scroll { overflow:auto; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--panel); box-shadow:var(--shadow-sm); max-height: calc(100vh - 230px); }
-    table.matrix { border-collapse: separate; border-spacing:0; font-size:13px; }
-    table.matrix th, table.matrix td { border-bottom:1px solid var(--border-soft); border-right:1px solid var(--border-soft); white-space:nowrap; }
-    table.matrix thead th { position:sticky; top:0; z-index:3; background:var(--panel-2); padding:10px 8px; font-weight:700; text-align:center; }
-    table.matrix thead th.base-h { left:0; z-index:4; text-align:left; min-width:240px; }
-    table.matrix th.base-c { position:sticky; left:0; z-index:2; background:var(--panel); text-align:left; padding:8px 12px; font-weight:600; max-width:300px; overflow:hidden; text-overflow:ellipsis; }
-    table.matrix tbody tr:hover th.base-c { background: var(--brand-soft); }
-    table.matrix td { text-align:center; padding:0; height:38px; min-width:64px; cursor:pointer; }
-    .cell { display:flex; align-items:center; justify-content:center; height:38px; }
-    .cell.has { color: var(--ok); font-weight:800; }
-    .cell.has:hover { background: rgba(26,156,78,.12); }
-    .cell.gap { color: transparent; }
-    .cell.gap:hover { background: rgba(191,106,2,.14); color: var(--warn); }
-    .cell.gap::after { content:"＋"; }
-    .cell.has .cnt { font-size:11px; color:var(--muted); margin-left:3px; font-weight:600; }
-    .base-c .exp { font-size:11px; color:var(--muted); font-weight:500; margin-left:6px; }
-    .colgrp { font-size:11px; color:var(--muted); font-weight:600; }
+    .fab { position:fixed; right:26px; bottom:26px; width:58px; height:58px; border-radius:50%; background:#ff7a3d; color:#fff; border:none; font-size:30px; line-height:1; box-shadow:var(--shadow-lg); cursor:pointer; z-index:30; display:flex; align-items:center; justify-content:center; text-decoration:none; }
+    .fab:hover { background:#f96a28; }
 
-    /* 하단 상세 드로어 */
     #drawer { position:fixed; right:0; bottom:0; left:0; background:var(--panel); border-top:1px solid var(--border); box-shadow:var(--shadow-lg); padding:16px 24px; max-height:46vh; overflow:auto; transform:translateY(105%); transition:transform .22s; z-index:40; }
     #drawer.open { transform:none; }
     #drawer h3 { margin:0 0 4px; font-size:16px; }
@@ -49,13 +67,14 @@
     #drawer .pitem { display:flex; align-items:center; gap:10px; padding:8px; border:1px solid var(--border-soft); border-radius:10px; }
     #drawer .pitem img { width:38px; height:38px; object-fit:cover; border-radius:7px; background:var(--panel-2); }
     #drawer .pitem .nm { font-size:12.5px; line-height:1.3; }
+    #drawer .badge { font-size:11px; font-weight:700; padding:2px 7px; border-radius:6px; }
     #drawer .close { position:absolute; top:12px; right:18px; cursor:pointer; color:var(--muted); font-size:22px; line-height:1; background:none; border:none; }
     #status { padding:40px; text-align:center; color:var(--muted); }
   </style>
 </head>
 <body>
   <header class="topbar">
-    <h1 id="title">🧩 확장맵</h1>
+    <h1 id="title" style="font-size:18px">🧩 런칭 매트릭스</h1>
     <div style="flex:1"></div>
     <div class="topbar-actions">
       <button class="btn icon-only" id="btnTheme" title="다크/라이트 전환" aria-label="테마 전환">🌙</button>
@@ -65,25 +84,24 @@
   </header>
 
   <div class="map-wrap">
-    <p class="map-intro">
-      가로 = <b>커넥터(호환 워치)</b>, 세로 = <b>베이스 스트랩</b>. <b style="color:var(--ok)">초록 ✓</b> = 이미 만든 확장,
-      <b style="color:var(--warn)">＋(빈칸)</b> = <b>아직 안 만든 확장 = 신제품 후보</b>.
-      빈칸 많은 베이스일수록 확장 여지가 큽니다. 칸을 클릭하면 상세가 열려요.
-    </p>
+    <div class="map-head">
+      <h1>런칭 매트릭스</h1>
+      <p class="sub">기본 디자인(베이스 스트랩) × 커넥터(호환 워치) 교차 출시 현황 — <b style="color:var(--warn)">빈칸 = 아직 안 만든 확장 = 신제품 후보</b></p>
+    </div>
 
     <div class="map-controls">
+      <select id="matSel"><option value="">전체 재질</option></select>
       <div class="seg" id="segScope">
         <button data-v="multi" class="on">확장된 베이스만 (2+)</button>
         <button data-v="all">전체</button>
       </div>
-      <label>정렬
-        <select id="sortSel">
-          <option value="exp">확장 많은 순</option>
-          <option value="gap">빈칸 많은 순</option>
-          <option value="name">이름순</option>
-        </select>
-      </label>
-      <input id="search" type="search" placeholder="베이스 스트랩 검색…" autocomplete="off" />
+      <select id="sortSel">
+        <option value="exp">확장 많은 순</option>
+        <option value="gap">빈칸 많은 순</option>
+        <option value="name">이름순</option>
+      </select>
+      <input id="search" type="search" placeholder="기본 디자인 검색…" autocomplete="off" />
+      <div class="legend" id="legend"></div>
     </div>
 
     <div class="map-stats" id="stats"></div>
@@ -93,145 +111,148 @@
     </div>
   </div>
 
+  <a class="fab" href="admin.html" title="신제품 등록">＋</a>
   <aside id="drawer"><button class="close" id="drawerClose">×</button><div id="drawerBody"></div></aside>
 
   <script src="config.js"></script>
   <script>
-  // ---------- 데이터 로드 (Supabase 우선, 없으면 sample CSV) ----------
   const S = (CONFIG.SUPABASE && CONFIG.SUPABASE.URL && CONFIG.SUPABASE.ANON_KEY) ? CONFIG.SUPABASE : null;
 
-  // ---------- 베이스/커넥터 파생 (DB 컬럼 있으면 그걸 우선) ----------
-  function baseFamily(r) {
+  // ---------- 출시 상태 정의 (레전드 + 셀 공통) ----------
+  const STATES = {
+    active:   { cls:"st-active",   label:"출시(active)",   mark:"✓" },
+    planned:  { cls:"st-planned",  label:"기획(planned)",  mark:"P" },
+    partial:  { cls:"st-partial",  label:"일부(partial)",  mark:"◑" },
+    sampling: { cls:"st-sampling", label:"샘플(sampling)", mark:"S" },
+    discont:  { cls:"st-discont",  label:"단종",           mark:"–" },
+  };
+  function statusOf(r){
+    const s = String(r.status||"").trim();
+    if (/단종|disc/i.test(s)) return "discont";
+    if (/기획|계획|plan/i.test(s)) return "planned";
+    if (/샘플|sampl/i.test(s)) return "sampling";
+    if (/일부|부분|partial/i.test(s)) return "partial";
+    return "active"; // 진행/active/출시/빈값
+  }
+  const PRIORITY = ["active","partial","sampling","planned","discont"];
+  function aggState(items){ for (const p of PRIORITY) if (items.some(r=>statusOf(r)===p)) return p; return "active"; }
+
+  // ---------- 베이스/커넥터 파생 (DB 컬럼 우선) ----------
+  function baseFamily(r){
     if (r.base_family) return r.base_family;
-    let n = String(r.name || "").replace(/\(.*?\)/g, "").replace(/\d+\s*mm/g, "");
-    return n.replace(/\s+/g, " ").trim();
+    let n = String(r.name||"").replace(/\(.*?\)/g,"").replace(/\d+\s*mm/g,"");
+    return n.replace(/\s+/g," ").trim();
   }
   const CONN_RULES = [
-    ["공용", "공용(범용)"], ["갤럭시 워치8", "갤럭시 워치(러그)"], ["갤럭시 울트라", "갤럭시 워치 울트라"],
-    ["갤럭시 날개형", "갤럭시 워치(날개)"], ["갤럭시 원클릭", "갤럭시 워치(원클릭)"], ["갤럭시 핏3", "갤럭시 핏3"],
-    ["미밴드", "샤오미 미밴드"], ["애플", "애플워치"], ["화웨이", "화웨이 워치핏"],
-    ["보이스캐디", "보이스캐디"], ["티렉스", "아미즈핏 티렉스"], ["프레스티지", "프레스티지(프리미엄)"],
+    ["공용","공용(범용)"],["갤럭시 워치8","갤럭시 워치8(러그)"],["갤럭시 울트라","갤럭시 울트라"],
+    ["갤럭시 날개형","갤럭시(날개)"],["갤럭시 원클릭","갤럭시(원클릭)"],["갤럭시 핏3","갤럭시 핏3"],
+    ["미밴드","샤오미 미밴드"],["애플","애플워치"],["화웨이","화웨이 핏4"],
+    ["보이스캐디","보이스캐디"],["티렉스","아미즈핏 티렉스"],["프레스티지","프레스티지(프리미엄)"],
   ];
-  function connector(r) {
+  function connector(r){
     if (r.connector) return r.connector;
-    const m = String(r.model || "").trim();
-    for (const [k, v] of CONN_RULES) if (m.startsWith(k)) return v;
+    const m = String(r.model||"").trim();
+    for (const [k,v] of CONN_RULES) if (m.startsWith(k)) return v;
     return m || "(미분류)";
   }
 
-  let PRODUCTS = [], COLS = [], FAMS = [];
+  let PRODUCTS=[], COLS=[], FAMS=[];
 
-  function build() {
-    PRODUCTS.forEach(r => { r._fam = baseFamily(r); r._conn = connector(r); });
-    // 커넥터 열 = 빈도순, 단 공용(범용) 맨 앞
-    const cf = {}; PRODUCTS.forEach(r => cf[r._conn] = (cf[r._conn]||0)+1);
-    COLS = Object.keys(cf).sort((a,b)=> (a==="공용(범용)"?-1:b==="공용(범용)"?1: cf[b]-cf[a]));
-    // 베이스 그룹화
-    const map = {};
-    PRODUCTS.forEach(r => {
-      if (!r._fam) return;
-      (map[r._fam] = map[r._fam] || {})[r._conn] = (map[r._fam][r._conn] || []);
-      map[r._fam][r._conn].push(r);
-    });
-    FAMS = Object.entries(map).map(([fam, byConn]) => {
-      const exp = Object.keys(byConn).length;
-      const gaps = COLS.length - exp;
-      return { fam, byConn, exp, gaps };
-    });
+  function build(){
+    PRODUCTS.forEach(r=>{ r._fam=baseFamily(r); r._conn=connector(r); r._mat=(r.material||"").trim(); });
+    // 재질 드롭다운
+    const mats=[...new Set(PRODUCTS.map(r=>r._mat).filter(Boolean))].sort((a,b)=>a.localeCompare(b,"ko"));
+    document.getElementById("matSel").innerHTML = `<option value="">전체 재질</option>`+mats.map(m=>`<option>${m}</option>`).join("");
+    // 레전드
+    document.getElementById("legend").innerHTML = Object.values(STATES).map(s=>`<span class="lg"><span class="sw ${s.cls}"></span>${s.label}</span>`).join("")+`<span class="lg"><span class="sw" style="background:var(--border-soft)"></span>미진출</span>`;
+    rebuild();
+  }
+
+  function rebuild(){
+    const mat = document.getElementById("matSel").value;
+    const rows = mat ? PRODUCTS.filter(r=>r._mat===mat) : PRODUCTS;
+    // 커넥터 열: 빈도순, 공용 맨 앞
+    const cf={}; rows.forEach(r=>cf[r._conn]=(cf[r._conn]||0)+1);
+    COLS = Object.keys(cf).sort((a,b)=> a==="공용(범용)"?-1:b==="공용(범용)"?1: cf[b]-cf[a]);
+    const map={};
+    rows.forEach(r=>{ if(!r._fam) return; (map[r._fam]=map[r._fam]||{}); (map[r._fam][r._conn]=map[r._fam][r._conn]||[]).push(r); });
+    FAMS = Object.entries(map).map(([fam,byConn])=>{ const exp=Object.keys(byConn).length; return {fam,byConn,exp,gaps:COLS.length-exp}; });
     render();
   }
 
-  function currentRows() {
-    const scope = document.querySelector("#segScope .on").dataset.v;
-    const q = document.getElementById("search").value.trim();
-    const sort = document.getElementById("sortSel").value;
-    let rows = FAMS.slice();
-    if (scope === "multi") rows = rows.filter(f => f.exp >= 2);
-    if (q) rows = rows.filter(f => f.fam.includes(q));
-    rows.sort((a,b) =>
-      sort === "name" ? a.fam.localeCompare(b.fam, "ko") :
-      sort === "gap"  ? (b.gaps - a.gaps) || (b.exp - a.exp) :
-                        (b.exp - a.exp) || (a.gaps - b.gaps));
+  function currentRows(){
+    const scope=document.querySelector("#segScope .on").dataset.v;
+    const q=document.getElementById("search").value.trim();
+    const sort=document.getElementById("sortSel").value;
+    let rows=FAMS.slice();
+    if (scope==="multi") rows=rows.filter(f=>f.exp>=2);
+    if (q) rows=rows.filter(f=>f.fam.includes(q));
+    rows.sort((a,b)=> sort==="name"?a.fam.localeCompare(b.fam,"ko"): sort==="gap"?(b.gaps-a.gaps)||(b.exp-a.exp):(b.exp-a.exp)||(a.gaps-b.gaps));
     return rows;
   }
 
-  function render() {
-    const rows = currentRows();
-    // 통계
-    const multi = FAMS.filter(f => f.exp >= 2);
-    const totalGaps = multi.reduce((s,f)=> s + f.gaps, 0);
-    document.getElementById("stats").innerHTML = [
-      ["전체 베이스 스트랩", FAMS.length, ""],
-      ["확장된 베이스 (2개+)", multi.length, ""],
-      [`빈칸 (신제품 후보·2+ 기준)`, totalGaps, "gap"],
-      ["커넥터(호환) 종류", COLS.length, ""],
-    ].map(([l,n,c]) => `<div class="map-stat ${c}"><div class="n">${n}</div><div class="l">${l}</div></div>`).join("");
+  function render(){
+    const rows=currentRows();
+    const multi=FAMS.filter(f=>f.exp>=2);
+    const totalGaps=multi.reduce((s,f)=>s+f.gaps,0);
+    document.getElementById("stats").innerHTML=[
+      ["전체 베이스 디자인",FAMS.length,""],["확장된 베이스 (2+)",multi.length,""],
+      ["빈칸 (신제품 후보·2+ 기준)",totalGaps,"gap"],["커넥터(호환) 종류",COLS.length,""],
+    ].map(([l,n,c])=>`<div class="map-stat ${c}"><div class="n">${n}</div><div class="l">${l}</div></div>`).join("");
 
-    // 헤더
-    let html = `<thead><tr><th class="base-h">베이스 스트랩 <span class="colgrp">(${rows.length})</span></th>`;
-    COLS.forEach(c => html += `<th title="${c}">${c.replace(/[()]/g," ").trim().split(" ")[0]}<div class="colgrp">${c.match(/\((.+)\)/)?.[1]||""}</div></th>`);
-    html += `</tr></thead><tbody>`;
-    rows.forEach(f => {
-      html += `<tr><th class="base-c" title="${f.fam}">${f.fam}<span class="exp">${f.exp}/${COLS.length}</span></th>`;
-      COLS.forEach(c => {
-        const items = f.byConn[c];
-        if (items) html += `<td data-fam="${encodeURIComponent(f.fam)}" data-conn="${encodeURIComponent(c)}"><div class="cell has">✓${items.length>1?`<span class="cnt">${items.length}</span>`:""}</div></td>`;
-        else html += `<td data-fam="${encodeURIComponent(f.fam)}" data-conn="${encodeURIComponent(c)}" data-gap="1"><div class="cell gap"></div></td>`;
+    let html=`<thead><tr><th class="base-h">기본 디자인 <span class="colsub">(${rows.length})</span></th>`;
+    COLS.forEach(c=>{ const m=c.match(/^(.*?)\((.+)\)$/); html+=`<th title="${c}">${m?m[1].trim():c}${m?`<div class="colsub">${m[2]}</div>`:""}</th>`; });
+    html+=`</tr></thead><tbody>`;
+    rows.forEach(f=>{
+      html+=`<tr><th class="base-c" title="${f.fam}">${f.fam}<span class="exp">${f.exp}/${COLS.length}</span></th>`;
+      COLS.forEach(c=>{
+        const items=f.byConn[c];
+        if(items){ const st=STATES[aggState(items)]; html+=`<td data-fam="${encodeURIComponent(f.fam)}" data-conn="${encodeURIComponent(c)}"><span class="cell ${st.cls}" title="${st.label}">${st.mark}${items.length>1?`<span class="cnt">${items.length}</span>`:""}</span></td>`; }
+        else html+=`<td class="empty" data-fam="${encodeURIComponent(f.fam)}" data-conn="${encodeURIComponent(c)}"><span class="cell-empty"></span></td>`;
       });
-      html += `</tr>`;
+      html+=`</tr>`;
     });
-    html += `</tbody>`;
-    document.getElementById("matrix").innerHTML = html;
-    document.getElementById("status").style.display = "none";
-    document.getElementById("matrixWrap").style.display = "";
+    document.getElementById("matrix").innerHTML=html+`</tbody>`;
+    document.getElementById("status").style.display="none";
+    document.getElementById("matrixWrap").style.display="";
   }
 
-  // ---------- 셀 클릭 → 상세 드로어 ----------
-  document.getElementById("matrix").addEventListener("click", e => {
-    const td = e.target.closest("td"); if (!td) return;
-    const fam = decodeURIComponent(td.dataset.fam), conn = decodeURIComponent(td.dataset.conn);
-    const f = FAMS.find(x => x.fam === fam); const items = f && f.byConn[conn];
-    const body = document.getElementById("drawerBody");
-    if (items) {
-      body.innerHTML = `<h3>${fam}</h3><div class="sub">호환: <b>${conn}</b> · ${items.length}개 제품</div>
-        <div class="plist">${items.map(p=>`<div class="pitem">${p.image?`<img src="${p.image}" loading="lazy">`:`<div class="pitem-noimg" style="width:38px;height:38px;border-radius:7px;background:var(--panel-2)"></div>`}<div class="nm">${p.name}${p.color?`<br><span style="color:var(--muted)">${p.color}</span>`:""}</div></div>`).join("")}</div>`;
+  document.getElementById("matrix").addEventListener("click",e=>{
+    const td=e.target.closest("td"); if(!td) return;
+    const fam=decodeURIComponent(td.dataset.fam), conn=decodeURIComponent(td.dataset.conn);
+    const f=FAMS.find(x=>x.fam===fam); const items=f&&f.byConn[conn];
+    const body=document.getElementById("drawerBody");
+    if(items){
+      body.innerHTML=`<h3>${fam}</h3><div class="sub">호환: <b>${conn}</b> · ${items.length}개 제품</div>
+        <div class="plist">${items.map(p=>{const st=STATES[statusOf(p)];return `<div class="pitem">${p.image?`<img src="${p.image}" loading="lazy">`:`<div style="width:38px;height:38px;border-radius:7px;background:var(--panel-2)"></div>`}<div class="nm">${p.name}${p.color?`<br><span style="color:var(--muted)">${p.color}</span>`:""}</div><span class="badge ${st.cls}" style="margin-left:auto">${st.label.replace(/\(.+\)/,"")}</span></div>`;}).join("")}</div>`;
     } else {
-      const made = COLS.filter(c => f.byConn[c]);
-      body.innerHTML = `<h3>${fam}</h3><div class="sub">호환: <b>${conn}</b></div>
+      const made=COLS.filter(c=>f.byConn[c]);
+      body.innerHTML=`<h3>${fam}</h3><div class="sub">호환: <b>${conn}</b></div>
         <div class="gap-cta">🆕 아직 <b>${conn}</b>용으로 안 만든 베이스예요 — <b>신제품 후보</b>.<br>
-        <span style="color:var(--text);font-weight:500">이미 만든 호환: ${made.join(" · ") || "없음"}</span></div>
+        <span style="color:var(--text);font-weight:500">이미 만든 호환: ${made.join(" · ")||"없음"}</span></div>
         <p style="margin-top:12px"><a class="btn brand" href="admin.html">🔧 관리자에서 이 조합 등록하기</a></p>`;
     }
     document.getElementById("drawer").classList.add("open");
   });
-  document.getElementById("drawerClose").onclick = () => document.getElementById("drawer").classList.remove("open");
+  document.getElementById("drawerClose").onclick=()=>document.getElementById("drawer").classList.remove("open");
 
-  // ---------- 컨트롤 ----------
-  document.querySelectorAll("#segScope button").forEach(b => b.onclick = () => {
-    document.querySelectorAll("#segScope button").forEach(x=>x.classList.remove("on")); b.classList.add("on"); render();
-  });
-  document.getElementById("sortSel").onchange = render;
-  document.getElementById("search").oninput = render;
-  document.getElementById("btnTheme").onclick = () => {
-    const t = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
-    document.documentElement.dataset.theme = t; localStorage.setItem("theme", t);
-  };
+  document.querySelectorAll("#segScope button").forEach(b=>b.onclick=()=>{ document.querySelectorAll("#segScope button").forEach(x=>x.classList.remove("on")); b.classList.add("on"); render(); });
+  document.getElementById("matSel").onchange=rebuild;
+  document.getElementById("sortSel").onchange=render;
+  document.getElementById("search").oninput=render;
+  document.getElementById("btnTheme").onclick=()=>{ const t=document.documentElement.dataset.theme==="dark"?"light":"dark"; document.documentElement.dataset.theme=t; localStorage.setItem("theme",t); };
 
-  // ---------- fetch ----------
   (function load(){
-    if (S) {
-      fetch(`${S.URL}/rest/v1/${S.TABLE||"products"}?select=*`, { headers:{ apikey:S.ANON_KEY, Authorization:`Bearer ${S.ANON_KEY}` }})
-        .then(r=>r.json()).then(d=>{ PRODUCTS = Array.isArray(d)?d:[]; build(); })
-        .catch(err=>{ document.getElementById("status").textContent = "불러오기 실패: "+err; });
+    if(S){
+      fetch(`${S.URL}/rest/v1/${S.TABLE||"products"}?select=*`,{headers:{apikey:S.ANON_KEY,Authorization:`Bearer ${S.ANON_KEY}`}})
+        .then(r=>r.json()).then(d=>{ PRODUCTS=Array.isArray(d)?d:[]; build(); })
+        .catch(err=>document.getElementById("status").textContent="불러오기 실패: "+err);
     } else {
-      // 데모: sample CSV (헤더 한글) — 최소 파싱
       fetch("sample-data.csv").then(r=>r.text()).then(t=>{
-        const [h,...lines] = t.trim().split(/\r?\n/);
-        const cols = h.split(",");
-        PRODUCTS = lines.map(l=>{ const c=l.split(","); const o={}; cols.forEach((k,i)=>o[k]=c[i]||"");
-          return { name:o["제품명"]||o.name, model:o["기종"]||o.model, color:o["색상"]||o.color, image:o["이미지"]||o.image }; });
+        const [h,...lines]=t.trim().split(/\r?\n/); const cols=h.split(",");
+        PRODUCTS=lines.map(l=>{const c=l.split(","),o={};cols.forEach((k,i)=>o[k]=c[i]||"");return {name:o["제품명"]||o.name,model:o["기종"]||o.model,material:o["재질"]||o.material,color:o["색상"]||o.color,image:o["이미지"]||o.image,status:o["상태"]||o.status};});
         build();
-      }).catch(err=>{ document.getElementById("status").textContent = "불러오기 실패: "+err; });
+      }).catch(err=>document.getElementById("status").textContent="불러오기 실패: "+err);
     }
   })();
   </script>
