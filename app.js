@@ -9,6 +9,8 @@ let headersAll = [];     // 전체 헤더 순서
 let colKeys = {};        // 특수 컬럼 키 {image, link, price, stock, name}
 let facetCols = [];      // [{label, key}] 자동감지된 필터 컬럼
 let viewMode = "table";  // "table" | "gallery"
+let suggestItems = [];   // 자동완성 후보 [{text, lc, type, key}]
+let suggestSel = -1;     // 키보드 선택 인덱스
 
 // 현재 필터 상태
 const filterState = { search: "", facets: {}, stock: "" };
@@ -128,6 +130,31 @@ function detectColumns(headers, rows) {
     }
   }
   buildFacetDropdowns(rows);
+  buildSuggestIndex(rows);
+}
+
+// ---- 검색 자동완성 인덱스 ------------------------------------------
+// 상품명 + 모든 facet 값(기종/규격/색상 등)을 후보로. 빈도순 정렬.
+function buildSuggestIndex(rows) {
+  const map = new Map(); // 키: type|text → {text,type,key,count}
+  const add = (text, type, key) => {
+    text = String(text || "").trim();
+    if (text.length < 1) return;
+    const id = type + "|" + text.toLowerCase();
+    const cur = map.get(id);
+    if (cur) cur.count++;
+    else map.set(id, { text, lc: text.toLowerCase(), type, key, count: 1 });
+  };
+  for (const r of rows) {
+    if (colKeys.name) add(rowTitle(r), "상품", null);
+    for (const f of facetCols) splitVals(r[f.key]).forEach((v) => add(v, f.label, f.key));
+  }
+  // 속성값을 상품명보다 먼저(짧고 필터로 바로 연결), 그다음 빈도순
+  suggestItems = [...map.values()].sort((a, b) => {
+    const an = a.type === "상품", bn = b.type === "상품";
+    if (an !== bn) return an ? 1 : -1;
+    return b.count - a.count;
+  });
 }
 
 function buildFacetDropdowns(rows) {
@@ -324,6 +351,102 @@ function setView(mode) {
   $("table").classList.toggle("hidden", mode !== "table");
   $("gallery").classList.toggle("hidden", mode !== "gallery");
   if (mode === "gallery") renderGallery();
+}
+
+// ---- 검색 자동완성 드롭다운 ----------------------------------------
+function ensureSuggestBox() {
+  let box = $("suggestBox");
+  if (box) return box;
+  box = document.createElement("div");
+  box.id = "suggestBox";
+  box.className = "suggest hidden";
+  box.setAttribute("role", "listbox");
+  const wrap = document.querySelector(".search-wrap");
+  if (wrap) wrap.appendChild(box);
+  return box;
+}
+
+function highlight(text, term) {
+  const i = text.toLowerCase().indexOf(term.toLowerCase());
+  if (i < 0) return esc(text);
+  return esc(text.slice(0, i)) + "<mark>" + esc(text.slice(i, i + term.length)) +
+    "</mark>" + esc(text.slice(i + term.length));
+}
+
+function renderSuggestions(term) {
+  const box = ensureSuggestBox();
+  term = String(term || "").trim();
+  if (term.length < 1) return hideSuggest();
+  const lc = term.toLowerCase();
+  const matches = suggestItems
+    .filter((s) => s.lc.includes(lc))
+    .sort((a, b) => {
+      // 앞에서 일치(startsWith)를 우선
+      const as = a.lc.startsWith(lc) ? 0 : 1;
+      const bs = b.lc.startsWith(lc) ? 0 : 1;
+      if (as !== bs) return as - bs;
+      const an = a.type === "상품", bn = b.type === "상품";
+      if (an !== bn) return an ? 1 : -1;
+      return b.count - a.count;
+    })
+    .slice(0, 8);
+  if (!matches.length) return hideSuggest();
+  suggestSel = -1;
+  box.innerHTML = matches.map((s, i) => {
+    const tag = s.type === "상품" ? "" : `<span class="sg-tag">${esc(s.type)}</span>`;
+    const cnt = `<span class="sg-cnt">${s.count}</span>`;
+    return `<div class="sg-item" role="option" data-i="${i}">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+      <span class="sg-text">${highlight(s.text, term)}</span>${tag}${cnt}
+    </div>`;
+  }).join("");
+  box._matches = matches;
+  box.querySelectorAll(".sg-item").forEach((el) => {
+    el.addEventListener("mousedown", (e) => { // mousedown: blur보다 먼저 실행
+      e.preventDefault();
+      chooseSuggest(matches[Number(el.dataset.i)]);
+    });
+  });
+  box.classList.remove("hidden");
+}
+
+function hideSuggest() {
+  const box = $("suggestBox");
+  if (box) box.classList.add("hidden");
+  suggestSel = -1;
+}
+
+// 후보 선택 → 상품명은 검색어로, 속성값은 해당 facet 필터로 적용
+function chooseSuggest(item) {
+  if (!item) return;
+  if (item.key) {
+    // 속성값: facet 드롭다운 설정 + 검색어 비움
+    filterState.facets[item.key] = item.text;
+    const sel = document.querySelector(`select.facet-select[data-key="${cssEsc(item.key)}"]`);
+    if (sel) sel.value = item.text;
+    filterState.search = "";
+    $("search").value = "";
+  } else {
+    // 상품명: 검색어로
+    filterState.search = item.text;
+    $("search").value = item.text;
+  }
+  hideSuggest();
+  applyFilters();
+}
+
+function cssEsc(s) {
+  return (window.CSS && CSS.escape) ? CSS.escape(s) : String(s).replace(/"/g, '\\"');
+}
+
+function moveSuggest(delta) {
+  const box = $("suggestBox");
+  if (!box || box.classList.contains("hidden")) return false;
+  const items = box.querySelectorAll(".sg-item");
+  if (!items.length) return false;
+  suggestSel = (suggestSel + delta + items.length) % items.length;
+  items.forEach((el, i) => el.classList.toggle("active", i === suggestSel));
+  return true;
 }
 
 // ---- 비슷한 제품 찾기 (비주얼 비교용) ------------------------------

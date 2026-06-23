@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>📷 포장 검수 — 사진으로 제품 확인</title>
+  <link rel="stylesheet" href="styles.css" />
+  <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow/tfjs@4.20.0/dist/tf.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/@tensorflow-models/mobilenet@2.1.1/dist/mobilenet.min.js"></script>
+  <style>
+    .vwrap { max-width: 760px; margin: 0 auto; padding: 20px; }
+    .vhead { display: flex; align-items: center; justify-content: space-between; margin-bottom: 6px; }
+    .vhead a { color: var(--brand); text-decoration: none; font-size: 14px; }
+    h1 { font-size: 22px; letter-spacing: -0.02em; margin: 8px 0 4px; }
+    .sub { color: var(--muted); font-size: 14px; margin-bottom: 20px; }
+
+    .index-bar {
+      background: var(--panel); border: 1px solid var(--border-soft); border-radius: var(--radius-sm);
+      padding: 12px 16px; font-size: 13px; color: var(--muted); margin-bottom: 16px;
+      display: flex; align-items: center; gap: 12px;
+    }
+    .progress { flex: 1; height: 6px; background: var(--border); border-radius: 999px; overflow: hidden; }
+    .progress > i { display: block; height: 100%; width: 0; background: var(--brand); transition: width .2s; }
+
+    .shoot {
+      display: flex; flex-direction: column; align-items: center; gap: 14px;
+      background: var(--panel); border: 2px dashed var(--border); border-radius: var(--radius);
+      padding: 36px 20px; text-align: center; cursor: pointer; transition: border-color .15s, background .15s;
+    }
+    .shoot:hover { border-color: var(--brand); background: var(--brand-soft); }
+    .shoot .big { font-size: 40px; }
+    .shoot .t { font-weight: 600; font-size: 16px; }
+    .shoot .d { color: var(--muted); font-size: 13px; }
+    #file { display: none; }
+
+    .query { display: none; gap: 16px; margin: 18px 0; align-items: flex-start; }
+    .query img { width: 130px; height: 130px; object-fit: cover; border-radius: var(--radius-sm); border: 1px solid var(--border); }
+    .query .qinfo { flex: 1; }
+    .query .qinfo .st { color: var(--muted); font-size: 14px; }
+
+    .results { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 14px; margin-top: 16px; }
+    .rcard { background: var(--panel); border: 1px solid var(--border-soft); border-radius: var(--radius-sm); overflow: hidden; box-shadow: var(--shadow-sm); }
+    .rcard.top { border: 2px solid var(--brand); }
+    .rcard img { width: 100%; aspect-ratio: 1/1; object-fit: cover; background: var(--panel-2); }
+    .rcard .rb { padding: 10px 12px; }
+    .rcard .rn { font-weight: 600; font-size: 13px; line-height: 1.34; }
+    .rcard .rm { color: var(--muted); font-size: 12px; margin-top: 2px; }
+    .score { display: inline-block; margin-top: 8px; padding: 3px 9px; border-radius: 999px; font-size: 12px; font-weight: 700; }
+    .score.hi { background: #e7f6ec; color: var(--ok); }
+    .score.mid { background: #fbf0dd; color: var(--warn); }
+    .score.lo { background: #fdeceb; color: var(--danger); }
+    .rank { font-size: 11px; color: var(--muted); font-weight: 700; }
+    .note { background: var(--brand-soft); color: var(--brand); border-radius: var(--radius-sm); padding: 12px 14px; font-size: 13px; margin-top: 18px; }
+    @media (prefers-color-scheme: dark) {
+      .score.hi { background: #0c2e1a; } .score.mid { background: #2e2410; } .score.lo { background: #2e1212; }
+    }
+  </style>
+</head>
+<body>
+  <div class="vwrap">
+    <div class="vhead"><a href="index.html">← 카탈로그로</a></div>
+    <h1>📷 포장 검수</h1>
+    <div class="sub">포장할 제품을 촬영하면, 카탈로그에서 <b>가장 비슷한 제품</b>을 찾아줍니다. 주문 제품과 맞는지 비교하세요.</div>
+
+    <div class="index-bar" id="indexBar">
+      <span id="indexMsg">준비 중…</span>
+      <div class="progress"><i id="indexBarFill"></i></div>
+    </div>
+
+    <label class="shoot" for="file" id="shoot">
+      <div class="big">📷</div>
+      <div class="t">사진 촬영 / 선택</div>
+      <div class="d">폰에서는 카메라가 열립니다 · 제품을 정면에서 한 개만</div>
+    </label>
+    <input type="file" id="file" accept="image/*" capture="environment" />
+
+    <div class="query" id="query">
+      <img id="qimg" alt="" />
+      <div class="qinfo">
+        <div class="st" id="qstatus">분석 중…</div>
+      </div>
+    </div>
+
+    <div class="results" id="results"></div>
+    <div class="note">💡 AI가 비주얼만으로 추정한 결과예요. 비슷한 디자인이 많으니 <b>상위 후보들을 눈으로 최종 확인</b>하세요. 색상까지 일치하는지도 함께 보세요.</div>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const DB = "spaceshied-verify", STORE = "emb", VER = "v1";
+    let model = null, catalog = [], embeds = []; // embeds: {item, vec, norm}
+
+    // ---- IndexedDB (임베딩 캐시) ----
+    function idb() {
+      return new Promise((res, rej) => {
+        const r = indexedDB.open(DB, 1);
+        r.onupgradeneeded = () => r.result.createObjectStore(STORE);
+        r.onsuccess = () => res(r.result);
+        r.onerror = () => rej(r.error);
+      });
+    }
+    async function cacheGet(k) {
+      const db = await idb();
+      return new Promise((res) => {
+        const t = db.transaction(STORE).objectStore(STORE).get(k);
+        t.onsuccess = () => res(t.result); t.onerror = () => res(null);
+      });
+    }
+    async function cacheSet(k, v) {
+      const db = await idb();
+      return new Promise((res) => {
+        const t = db.transaction(STORE, "readwrite").objectStore(STORE).put(v, k);
+        t.onsuccess = () => res(); t.onerror = () => res();
+      });
+    }
+
+    function loadImg(src) {
+      return new Promise((res, rej) => {
+        const im = new Image();
+        im.crossOrigin = "anonymous";
+        im.onload = () => res(im);
+        im.onerror = () => rej(new Error("img fail " + src));
+        im.src = src;
+      });
+    }
+    function embed(img) {
+      return tf.tidy(() => {
+        const t = model.infer(img, true); // 임베딩 벡터
+        return Array.from(t.dataSync());
+      });
+    }
+    const norm = (v) => Math.sqrt(v.reduce((s, x) => s + x * x, 0));
+    function cosine(a, na, b, nb) {
+      let d = 0; for (let i = 0; i < a.length; i++) d += a[i] * b[i];
+      return d / (na * nb + 1e-9);
+    }
+
+    // ---- 카탈로그 로드 + 인덱싱 ----
+    async function init() {
+      $("indexMsg").textContent = "AI 모델 불러오는 중…";
+      model = await mobilenet.load({ version: 2, alpha: 1.0 });
+
+      const csv = await new Promise((res) =>
+        Papa.parse("sample-data.csv", { download: true, header: true, skipEmptyLines: true, complete: (r) => res(r.data) }));
+      catalog = csv.filter((r) => (r["이미지"] || "").trim());
+      $("indexMsg").textContent = `상품 이미지 분석 준비 (${catalog.length}개)`;
+
+      // 캐시 확인
+      const cached = await cacheGet("embeds-" + VER);
+      if (cached && cached.length === catalog.length) {
+        embeds = cached;
+        doneIndexing();
+        return;
+      }
+      // 인덱싱 (한 번만, 캐시됨)
+      embeds = [];
+      for (let i = 0; i < catalog.length; i++) {
+        const it = catalog[i];
+        try {
+          const im = await loadImg(it["이미지"]);
+          const vec = embed(im);
+          embeds.push({ item: it, vec, norm: norm(vec) });
+        } catch (e) { /* 이미지 실패 스킵 */ }
+        const pct = Math.round(((i + 1) / catalog.length) * 100);
+        $("indexBarFill").style.width = pct + "%";
+        $("indexMsg").textContent = `상품 이미지 학습 중… ${i + 1}/${catalog.length}`;
+        if (i % 5 === 0) await new Promise((r) => setTimeout(r, 0)); // UI 양보
+      }
+      await cacheSet("embeds-" + VER, embeds);
+      doneIndexing();
+    }
+    function doneIndexing() {
+      $("indexBarFill").style.width = "100%";
+      $("indexMsg").textContent = `✅ 준비 완료 — ${embeds.length}개 제품 검색 가능`;
+      setTimeout(() => { $("indexBar").style.display = "none"; }, 1500);
+    }
+
+    // ---- 쿼리 ----
+    $("file").addEventListener("change", async (e) => {
+      const f = e.target.files[0]; if (!f) return;
+      if (!embeds.length) { alert("아직 준비 중입니다. 잠시 후 다시 시도하세요."); return; }
+      const url = URL.createObjectURL(f);
+      $("qimg").src = url; $("query").style.display = "flex";
+      $("qstatus").textContent = "분석 중…"; $("results").innerHTML = "";
+      const im = await loadImg(url);
+      const qv = embed(im), qn = norm(qv);
+      const ranked = embeds
+        .map((e2) => ({ it: e2.item, sim: cosine(qv, qn, e2.vec, e2.norm) }))
+        .sort((a, b) => b.sim - a.sim).slice(0, 8);
+      $("qstatus").innerHTML = `가장 비슷한 제품 <b>${ranked.length}개</b>를 찾았어요. 1순위와 맞는지 확인하세요.`;
+      renderResults(ranked);
+    });
+
+    function renderResults(ranked) {
+      $("results").innerHTML = ranked.map((r, i) => {
+        const pct = Math.round(r.sim * 100);
+        const cls = pct >= 75 ? "hi" : pct >= 55 ? "mid" : "lo";
+        const sub = [r.it["기종"], r.it["재질"], r.it["색상"]].filter(Boolean).join(" · ");
+        return `<div class="rcard ${i === 0 ? "top" : ""}">
+          <img src="${r.it["이미지"]}" loading="lazy" alt="">
+          <div class="rb">
+            <div class="rank">${i === 0 ? "🥇 1순위" : (i + 1) + "순위"}</div>
+            <div class="rn">${(r.it["제품명"] || "").replace(/</g, "&lt;")}</div>
+            <div class="rm">${sub.replace(/</g, "&lt;")}</div>
+            <span class="score ${cls}">유사도 ${pct}%</span>
+          </div>
+        </div>`;
+      }).join("");
+    }
+
+    init();
+  </script>
+</body>
+</html>

@@ -314,8 +314,8 @@ main { padding: 18px 24px 48px; max-width: 1400px; margin: 0 auto; }
   .view-toggle { flex: 1 1 auto; }
   .view-toggle .btn { flex: 1; justify-content: center; }
 
-  #btnReload .btn-label, #btnAdd .btn-label { display: none; }
-  #btnReload, #btnAdd { padding: 9px 13px; font-size: 16px; }
+  #btnReload .btn-label, #btnAdd .btn-label, #btnVerify .btn-label { display: none; }
+  #btnReload, #btnAdd, #btnVerify { padding: 9px 13px; font-size: 16px; }
 
   #btnFilters { display: inline-flex; }
   .filters {
