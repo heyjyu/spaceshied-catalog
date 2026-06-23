@@ -11,6 +11,7 @@ let facetCols = [];      // [{label, key}] 자동감지된 필터 컬럼
 let viewMode = "gallery";  // "table" | "gallery" — 갤러리 기본
 let suggestItems = [];   // 자동완성 후보 [{text, lc, type, key}]
 let suggestSel = -1;     // 키보드 선택 인덱스
+let categoryCfg = {};    // 사이드바 카테고리 설정(Supabase categories): {key:{label,sort,visible}}
 
 // 현재 필터 상태
 const filterState = { search: "", facets: {}, stock: "", favOnly: false, category: "", lifecycle: "" };
@@ -216,7 +217,21 @@ function loadData() {
 }
 
 // Supabase REST 에서 상품을 읽어 카탈로그 표시 (영문 컬럼 → 한글 헤더 매핑)
+//  먼저 categories(사이드바 순서/이름/노출) 로드 → 그다음 상품
 function loadFromSupabase() {
+  const s = CONFIG.SUPABASE;
+  fetch(`${s.URL}/rest/v1/categories?select=key,label,sort,visible`, {
+    headers: { apikey: s.ANON_KEY, Authorization: `Bearer ${s.ANON_KEY}` },
+  })
+    .then((r) => (r.ok ? r.json() : []))
+    .catch(() => [])
+    .then((cats) => {
+      categoryCfg = {};
+      (cats || []).forEach((c) => { categoryCfg[c.key] = { label: c.label || "", sort: c.sort, visible: c.visible !== false }; });
+      loadProductsFromSupabase();
+    });
+}
+function loadProductsFromSupabase() {
   const s = CONFIG.SUPABASE;
   const map = s.COLUMN_MAP || {};            // {영문컬럼: 한글헤더}
   const headers = Object.values(map);        // 표시 순서 = 매핑 순서
@@ -562,20 +577,29 @@ function productGroup(r) {
   }
   return model;
 }
+// 카테고리 표시정보: DB categories 우선, 없으면 config, 그것도 없으면 그룹값/개수순
+function catMeta(g) {
+  const c = categoryCfg[g];
+  if (c) return { label: c.label || g, sort: (c.sort != null ? c.sort : null), visible: c.visible !== false };
+  const order = CONFIG.CATEGORY_ORDER || [];
+  const labels = CONFIG.CATEGORY_LABELS || {};
+  const i = order.indexOf(g);
+  return { label: labels[g] || g, sort: i === -1 ? null : i, visible: true };
+}
 function renderCatNav() {
   const nav = $("catNav");
   if (!nav) return;
   const counts = {};
   for (const r of allRows) { const g = productGroup(r); counts[g] = (counts[g] || 0) + 1; }
-  // 순서: config CATEGORY_ORDER 우선(분기마다 여기만 수정), 나머지는 개수 많은 순
-  const order = CONFIG.CATEGORY_ORDER || [];
-  const labels = CONFIG.CATEGORY_LABELS || {};
-  const groups = Object.keys(counts).sort((a, b) => {
-    const ia = order.indexOf(a), ib = order.indexOf(b);
-    if (ia !== ib) { if (ia === -1) return 1; if (ib === -1) return -1; return ia - ib; }
-    return counts[b] - counts[a] || a.localeCompare(b, "ko");
-  });
-  const items = [["", "전체 카테고리", allRows.length]].concat(groups.map((g) => [g, labels[g] || g, counts[g]]));
+  // 우선순위: DB categories(admin 관리) > config CATEGORY_ORDER/LABELS > 개수 많은 순
+  const groups = Object.keys(counts)
+    .filter((g) => catMeta(g).visible)
+    .sort((a, b) => {
+      const sa = catMeta(a).sort, sb = catMeta(b).sort;
+      if (sa != null || sb != null) { if (sa == null) return 1; if (sb == null) return -1; return sa - sb; }
+      return counts[b] - counts[a] || a.localeCompare(b, "ko");
+    });
+  const items = [["", "전체 카테고리", allRows.length]].concat(groups.map((g) => [g, catMeta(g).label, counts[g]]));
   nav.innerHTML = items.map(([val, label, n]) => {
     const on = (filterState.category || "") === val;
     return `<button class="cat-item${on ? " active" : ""}" data-cat="${esc(val)}">
