@@ -370,4 +370,26 @@ main { padding: 18px 24px 48px; max-width: 1400px; margin: 0 auto; }
   .view-toggle { background: #2c2c2e; }
   .view-toggle .btn.active { background: #48484a; }
   .tabulator-row:hover { background: var(--brand-soft) !important; }
+  .sg-tag { background: #2c2c2e; }
 }
+
+/* ---------- 검색 자동완성 드롭다운 ---------- */
+.suggest {
+  position: absolute; top: calc(100% + 6px); left: 0; right: 0;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); box-shadow: var(--shadow-lg);
+  z-index: 60; max-height: 60vh; overflow-y: auto; padding: 4px;
+}
+.sg-item {
+  display: flex; align-items: center; gap: 9px;
+  padding: 10px; border-radius: 9px; cursor: pointer;
+}
+.sg-item svg { width: 14px; height: 14px; color: var(--muted); flex: none; }
+.sg-item:hover, .sg-item.active { background: var(--brand-soft); }
+.sg-text { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sg-text mark { background: transparent; color: var(--brand); font-weight: 700; }
+.sg-tag {
+  font-size: 11px; color: var(--muted); background: var(--panel-2);
+  border: 1px solid var(--border-soft); border-radius: 999px; padding: 1px 8px; flex: none;
+}
+.sg-cnt { font-size: 11px; color: var(--muted); flex: none; min-width: 18px; text-align: right; }

@@ -549,10 +549,24 @@ function init() {
   document.title = CONFIG.TITLE || "상품 카탈로그";
 
   let t;
-  $("search").addEventListener("input", (e) => {
+  const searchEl = $("search");
+  searchEl.addEventListener("input", (e) => {
+    renderSuggestions(e.target.value);          // 자동완성은 즉시
     clearTimeout(t);
     t = setTimeout(() => { filterState.search = e.target.value.trim(); applyFilters(); }, 150);
   });
+  searchEl.addEventListener("keydown", (e) => {
+    if (e.key === "ArrowDown") { if (moveSuggest(1)) e.preventDefault(); }
+    else if (e.key === "ArrowUp") { if (moveSuggest(-1)) e.preventDefault(); }
+    else if (e.key === "Enter") {
+      const box = $("suggestBox");
+      if (box && !box.classList.contains("hidden") && suggestSel >= 0 && box._matches) {
+        e.preventDefault(); chooseSuggest(box._matches[suggestSel]);
+      } else { hideSuggest(); }
+    } else if (e.key === "Escape") { hideSuggest(); }
+  });
+  searchEl.addEventListener("focus", (e) => { if (e.target.value.trim()) renderSuggestions(e.target.value); });
+  searchEl.addEventListener("blur", () => setTimeout(hideSuggest, 120));
   $("stockFilter").addEventListener("change", (e) => {
     filterState.stock = e.target.value; applyFilters();
   });
