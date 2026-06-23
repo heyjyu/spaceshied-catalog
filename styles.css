@@ -193,19 +193,50 @@ main { padding: 18px 24px 48px; max-width: 1400px; margin: 0 auto; }
 #status { padding: 60px; text-align: center; color: var(--muted); }
 #status.error { color: var(--danger); white-space: pre-line; }
 
-/* ---------- 표 (Tabulator) ---------- */
+/* ---------- 표 (Tabulator) — 테마 연동 · 모던 ---------- */
 #table {
   background: var(--panel);
   border: 1px solid var(--border-soft);
-  border-radius: var(--radius);
+  border-radius: 12px;
   box-shadow: var(--shadow);
   overflow: hidden;
 }
-.tabulator { font-size: 13px; border: none; background: transparent; }
-.tabulator .tabulator-header { background: var(--panel-2); border-bottom: 1px solid var(--border); font-weight: 600; }
-.tabulator .tabulator-col { background: transparent; }
-.tabulator-row.tabulator-row-even { background: var(--panel-2); }
+.tabulator {
+  font-size: 13.5px; border: none; background: var(--panel); color: var(--text);
+}
+/* 헤더 */
+.tabulator .tabulator-header,
+.tabulator .tabulator-header .tabulator-col {
+  background: var(--panel-2); border: none; color: var(--muted);
+}
+.tabulator .tabulator-header { border-bottom: 1px solid var(--border); }
+.tabulator .tabulator-col {
+  border-right: none;
+}
+.tabulator .tabulator-col .tabulator-col-content { padding: 12px 14px; }
+.tabulator .tabulator-col-title {
+  color: var(--muted); font-weight: 600; font-size: 12px; letter-spacing: .01em;
+}
+.tabulator .tabulator-col .tabulator-arrow { border-bottom-color: var(--muted) !important; }
+.tabulator .tabulator-col.tabulator-sortable[aria-sort="ascending"] .tabulator-arrow,
+.tabulator .tabulator-col.tabulator-sortable[aria-sort="descending"] .tabulator-arrow { border-bottom-color: var(--brand) !important; }
+/* 행/셀 */
+.tabulator-row { background: var(--panel); color: var(--text); border-bottom: 1px solid var(--border-soft); }
+.tabulator-row.tabulator-row-even { background: var(--panel); }
+.tabulator-row .tabulator-cell { border-right: none; padding: 13px 14px; }
 .tabulator-row:hover { background: var(--brand-soft) !important; }
+.tabulator-row:last-child { border-bottom: none; }
+/* 페이지네이션 푸터 */
+.tabulator .tabulator-footer {
+  background: var(--panel-2); border-top: 1px solid var(--border); color: var(--muted);
+}
+.tabulator .tabulator-footer .tabulator-page {
+  background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 8px;
+}
+.tabulator .tabulator-footer .tabulator-page.active { background: var(--brand); color: #fff; border-color: var(--brand); }
+.tabulator .tabulator-footer .tabulator-page:disabled { opacity: .4; }
+.tabulator .tabulator-footer .tabulator-page-size { background: var(--panel); color: var(--text); border: 1px solid var(--border); border-radius: 8px; }
+.tabulator .tabulator-placeholder { color: var(--muted); background: var(--panel); }
 .cell-thumb { width: 46px; height: 46px; object-fit: cover; border-radius: 10px; border: 1px solid var(--border); }
 .cell-link { color: var(--brand); text-decoration: none; font-weight: 500; }
 .cell-link:hover { text-decoration: underline; }
