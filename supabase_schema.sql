@@ -15,6 +15,11 @@ create table if not exists public.products (
   color_count int,                    -- 색상 옵션 갯수(예: 12)
   image      text default '',        -- 대표 이미지 URL
   store_url  text default '',        -- 네이버스토어 등 상품 링크
+  -- "베이스 + 커넥터" 구조 (자세한 설명: supabase_migration_base_connector.sql)
+  base_size   text default '',        -- 베이스 규격: 20/22mm (커넥터 떼면 남는 표준 폭)
+  strap_shape text default '',        -- 형태: 날개형(아치)/일반형(일자)
+  connector   text default '',        -- 머리쪽 커넥터 = 호환 대상(공용/갤럭시 워치/울트라/샤오미/보이스캐디 …)
+  base_family text default '',        -- 같은 베이스 스트랩끼리 묶는 그룹키(제품명 정규화)
   sampling_date date,                -- 샘플링 날짜(월별 검색용)
   status     text default '진행',     -- 진행 / 단종
   sort       int  default 0,         -- 정렬 순서

@@ -40,7 +40,9 @@ const CONFIG = {
     ORDER: "sort.asc.nullslast",
     // DB(영문 컬럼) → 화면(한글 헤더) 매핑. 표시 순서 = 이 순서.
     COLUMN_MAP: {
-      name: "제품명", model: "기종", material: "재질", size: "규격",
+      name: "제품명", model: "기종",
+      base_size: "베이스규격", connector: "호환", strap_shape: "형태", base_family: "베이스그룹",
+      material: "재질", size: "규격",
       buckle: "체결", color: "색상", color_count: "색상수",
       image: "이미지", store_url: "네이버스토어", status: "상태",
     },
@@ -57,7 +59,9 @@ const CONFIG = {
   //  (다른 셀러 시트엔 derive 빼면 원본값 그대로 필터됨)
   //  exclude(선택): 그 facet 드롭다운에서 뺄 값들(케이스용 재질 등).
   FACETS: [
-    { label: "기종", hints: ["기종", "호환", "모델", "워치"] },
+    { label: "기종", hints: ["기종", "모델", "워치"] },
+    { label: "호환", hints: ["호환"] },          // 머리쪽 커넥터 = 호환 워치 (베이스+커넥터 구조)
+    { label: "베이스규격", hints: ["베이스규격"] }, // 커넥터 떼면 남는 표준 폭(20/22mm)
     { label: "재질", hints: ["재질", "소재", "material"],
       exclude: ["강화유리", "사생활 강화유리", "PC", "PMMA"] }, // 케이스/액정보호필름용 → 스트랩 아님
     { label: "규격", hints: ["규격", "사이즈", "size", "mm"], derive: "mm" },
@@ -66,7 +70,7 @@ const CONFIG = {
   ],
 
   // 표에서 숨길 내부 컬럼(원본탭 등 손님에게 안 보일 것)
-  HIDE_COLUMNS: ["원본탭", "상태", "색상수", "네이버스토어"],
+  HIDE_COLUMNS: ["원본탭", "상태", "색상수", "네이버스토어", "베이스그룹", "형태"],
 
   // 색상 버킷 → 스와치 색(표/카드에 동그라미로). 버킷과 키 맞추기.
   COLOR_HEX: {
