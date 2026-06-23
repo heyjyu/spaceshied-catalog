@@ -4,6 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>관리자 — 상품 관리</title>
+  <script>document.documentElement.dataset.theme = localStorage.getItem("theme") || (window.matchMedia("(prefers-color-scheme: dark)").matches ? "dark" : "light");</script>
   <link rel="stylesheet" href="styles.css" />
   <style>
     .admin-wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
@@ -171,6 +172,7 @@
     const isNew = !rec;
     rec = rec || {};
     const inputs = Object.entries(FIELDS).map(([col, label]) => {
+      if (col === "store_url") return "";   // 네이버스토어 입력칸 제거
       if (col === "image") {
         return `<div class="field" style="grid-column:1/-1">
           <label>${esc(label)}</label>
@@ -252,7 +254,7 @@
     // 저장
     document.getElementById("saveBtn").addEventListener("click", async () => {
       const obj = {};
-      Object.keys(FIELDS).forEach((col) => { obj[col] = (document.getElementById("f_" + col).value || "").trim(); });
+      Object.keys(FIELDS).forEach((col) => { const el = document.getElementById("f_" + col); if (el) obj[col] = (el.value || "").trim(); });
       const sortV = document.getElementById("f_sort").value;
       obj.sort = sortV === "" ? null : Number(sortV);
       obj.sampling_date = document.getElementById("f_sampling_date").value || null;

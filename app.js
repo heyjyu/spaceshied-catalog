@@ -886,6 +886,15 @@ function init() {
 
   // 모바일은 표 뷰가 좁아 첫 컬럼만 보임 → 기본 갤러리
   if (window.matchMedia("(max-width: 640px)").matches) viewMode = "gallery";
+  // 다크/라이트 테마 토글
+  const themeIcon = () => { const b = $("btnTheme"); if (b) b.textContent = document.documentElement.dataset.theme === "dark" ? "☀️" : "🌙"; };
+  themeIcon();
+  if ($("btnTheme")) $("btnTheme").addEventListener("click", () => {
+    const next = document.documentElement.dataset.theme === "dark" ? "light" : "dark";
+    document.documentElement.dataset.theme = next;
+    try { localStorage.setItem("theme", next); } catch (e) {}
+    themeIcon();
+  });
   $("btnReload").addEventListener("click", () => {
     if (table) { table.destroy(); table = null; }
     loadData();
