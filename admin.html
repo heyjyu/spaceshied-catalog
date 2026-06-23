@@ -68,9 +68,12 @@
              box-shadow: var(--shadow-lg); padding: 28px 28px 22px; }
     .modal h3 { margin: 0 0 20px; font-size: 22px; font-weight: 700; letter-spacing: -.02em; }
     .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
-    .modal-actions { display: flex; gap: 10px; margin-top: 22px; }
-    .modal-actions .btn.ghost { padding: 13px 20px; }
-    .modal-actions .btn.brand { flex: 1; padding: 13px; font-size: 15px; font-weight: 700; }
+    .modal-actions { display: flex; gap: 10px; margin-top: 24px; }
+    .modal-actions .btn { height: 50px; border-radius: 14px; font-size: 15px; font-weight: 700;
+      display: inline-flex; align-items: center; justify-content: center; }
+    .modal-actions .btn.ghost { flex: 1; background: var(--panel-2); border: 1px solid var(--border); color: var(--text); }
+    .modal-actions .btn.ghost:hover { background: var(--border-soft); }
+    .modal-actions .btn.brand { flex: 2; }
     .thumb-preview { width: 84px; height: 84px; border-radius: 10px; object-fit: cover; border: 1px solid var(--border);
                      background: var(--panel-2); }
     @media (max-width: 560px) { .grid2 { grid-template-columns: 1fr; } }
