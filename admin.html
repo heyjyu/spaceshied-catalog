@@ -220,12 +220,12 @@
       }
       if (col === "status") {
         const cur = rec.status || "진행";
+        // 런칭 매트릭스 색과 1:1 (진행=출시 초록 / 기획 파랑 / 샘플 보라 / 일부 주황 / 단종 회색)
+        const STATUS_OPTS = ["진행", "기획", "샘플", "일부", "단종"];
+        const opts = STATUS_OPTS.map((v) => `<option value="${v}"${cur === v ? " selected" : ""}>${v}</option>`).join("");
         return `<div class="field">
           <label>${esc(label)}</label>
-          <select id="f_status">
-            <option value="진행"${cur === "진행" ? " selected" : ""}>진행</option>
-            <option value="단종"${cur === "단종" ? " selected" : ""}>단종</option>
-          </select>
+          <select id="f_status">${opts}</select>
         </div>`;
       }
       if (DROPDOWN.has(col)) {
