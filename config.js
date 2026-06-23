@@ -29,6 +29,22 @@ const CONFIG = {
   // 헤더(컬럼 이름)가 몇 번째 줄인지. 보통 1.
   HEADER_ROW: 1,
 
+  // ===== Supabase (웹사이트로만 상품관리) =====================
+  //  URL·ANON_KEY 를 채우면 구글시트/CSV 대신 Supabase 에서 읽습니다.
+  //  비워두면(""), 위 SHEET_ID/DEMO 방식으로 동작(현행 유지).
+  //  설정 방법: SUPABASE_SETUP.md 참고. (anon key 는 공개돼도 안전 — RLS 로 쓰기 차단)
+  SUPABASE: {
+    URL: "",          // 예: https://abcd1234.supabase.co
+    ANON_KEY: "",     // 프로젝트 Settings ▸ API ▸ anon public key
+    TABLE: "products",
+    ORDER: "sort.asc.nullslast",
+    // DB(영문 컬럼) → 화면(한글 헤더) 매핑. 표시 순서 = 이 순서.
+    COLUMN_MAP: {
+      name: "제품명", model: "기종", material: "재질", size: "스트랩 규격",
+      buckle: "체결 형태", color: "색상", image: "이미지", store_url: "네이버스토어",
+    },
+  },
+
   PAGE_SIZE: 50,
 
   // 검색창 옆 필터 드롭다운. hints 단어가 헤더에 포함되면 그 컬럼으로 자동 생성.

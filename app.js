@@ -131,8 +131,27 @@ function sheetUrl() {
   return `${base}&sheet=${encodeURIComponent(CONFIG.SHEET_NAME || "")}`;
 }
 
+// 헤더·행을 받아 화면 구성 (CSV/시트/Supabase 공통 진입점)
+function ingest(headers, rows) {
+  rows = rows.filter((r) => Object.values(r).some((v) => String(v).trim() !== ""));
+  if (!rows.length) {
+    setStatus("데이터가 비어 있습니다. 연결 설정/내용을 확인하세요.", true);
+    return;
+  }
+  headersAll = headers;
+  allRows = rows;
+  detectColumns(headersAll, rows);
+  buildView(rows);
+}
+
+function supabaseEnabled() {
+  const s = CONFIG.SUPABASE;
+  return !!(s && s.URL && s.ANON_KEY);
+}
+
 function loadData() {
   setStatus("데이터를 불러오는 중…");
+  if (supabaseEnabled()) return loadFromSupabase();
   const url = sheetUrl();
   // header:false 로 받아서 HEADER_ROW(제목 줄 건너뛰기)를 우리가 직접 처리
   Papa.parse(url + (url.includes("?") ? "&" : "?") + "_=" + Date.now(), {
@@ -147,27 +166,43 @@ function loadData() {
         return;
       }
       // 헤더 만들기 (빈 헤더는 컬럼N 으로 이름 붙임)
-      headersAll = grid[hr].map((h, i) => (String(h).trim() || `컬럼${i + 1}`));
-      const rows = grid.slice(hr + 1)
-        .map((arr) => {
-          const o = {};
-          headersAll.forEach((h, i) => (o[h] = arr[i] != null ? String(arr[i]) : ""));
-          return o;
-        })
-        .filter((r) => Object.values(r).some((v) => String(v).trim() !== ""));
-      if (!rows.length) {
-        setStatus("데이터가 비어 있습니다. 시트 내용/공유설정을 확인하세요.", true);
-        return;
-      }
-      allRows = rows;
-      detectColumns(headersAll, rows);
-      buildView(rows);
+      const headers = grid[hr].map((h, i) => (String(h).trim() || `컬럼${i + 1}`));
+      const rows = grid.slice(hr + 1).map((arr) => {
+        const o = {};
+        headers.forEach((h, i) => (o[h] = arr[i] != null ? String(arr[i]) : ""));
+        return o;
+      });
+      ingest(headers, rows);
     },
     error: (err) => {
       setStatus("불러오기 실패: " + err.message +
         "\n구글시트 공유설정(링크가 있는 모든 사용자=뷰어)을 확인하세요.", true);
     },
   });
+}
+
+// Supabase REST 에서 상품을 읽어 카탈로그 표시 (영문 컬럼 → 한글 헤더 매핑)
+function loadFromSupabase() {
+  const s = CONFIG.SUPABASE;
+  const map = s.COLUMN_MAP || {};            // {영문컬럼: 한글헤더}
+  const headers = Object.values(map);        // 표시 순서 = 매핑 순서
+  const order = s.ORDER ? `&order=${encodeURIComponent(s.ORDER)}` : "";
+  fetch(`${s.URL}/rest/v1/${s.TABLE || "products"}?select=*${order}`, {
+    headers: { apikey: s.ANON_KEY, Authorization: `Bearer ${s.ANON_KEY}` },
+  })
+    .then((r) => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
+    .then((data) => {
+      const rows = (data || []).map((rec) => {
+        const o = {};
+        for (const [col, head] of Object.entries(map)) o[head] = rec[col] != null ? String(rec[col]) : "";
+        return o;
+      });
+      ingest(headers, rows);
+    })
+    .catch((err) => {
+      setStatus("Supabase 불러오기 실패: " + err.message +
+        "\nconfig.js 의 SUPABASE.URL/ANON_KEY/TABLE 과 RLS(공개 읽기) 설정을 확인하세요.", true);
+    });
 }
 
 function setStatus(msg, isError) {

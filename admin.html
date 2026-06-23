@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>관리자 — 상품 관리</title>
+  <link rel="stylesheet" href="styles.css" />
+  <style>
+    .admin-wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
+    .admin-top { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 18px; }
+    .admin-top h1 { font-size: 20px; margin: 0; flex: 1; }
+    .notice { background: var(--brand-soft); border: 1px solid var(--border); border-radius: var(--radius-sm);
+              padding: 14px 16px; color: var(--text); line-height: 1.6; }
+    .notice code { background: rgba(0,0,0,.06); padding: 1px 6px; border-radius: 6px; }
+    /* 로그인 */
+    .login-box { max-width: 360px; margin: 8vh auto; background: var(--panel); border: 1px solid var(--border);
+                 border-radius: var(--radius); box-shadow: var(--shadow); padding: 28px 24px; }
+    .login-box h2 { margin: 0 0 4px; font-size: 19px; }
+    .login-box p { margin: 0 0 18px; color: var(--muted); font-size: 13px; }
+    .field { margin-bottom: 12px; }
+    .field label { display: block; font-size: 12px; color: var(--muted); margin-bottom: 5px; font-weight: 600; }
+    .field input, .field select, .field textarea {
+      width: 100%; padding: 11px 12px; border: 1px solid var(--border); border-radius: var(--radius-sm);
+      font-size: 14px; background: var(--panel); color: var(--text); outline: none; }
+    .field input:focus, .field textarea:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft); }
+    .full-btn { width: 100%; padding: 12px; font-weight: 700; }
+    .err { color: var(--danger); font-size: 13px; margin-top: 8px; min-height: 18px; }
+    /* 목록 */
+    .prod-row { display: grid; grid-template-columns: 56px 1fr auto; gap: 12px; align-items: center;
+                background: var(--panel); border: 1px solid var(--border-soft); border-radius: var(--radius-sm);
+                padding: 10px 12px; margin-bottom: 8px; }
+    .prod-row img, .prod-row .noimg { width: 52px; height: 52px; border-radius: 10px; object-fit: cover;
+                background: var(--panel-2); border: 1px solid var(--border); }
+    .prod-row .pname { font-weight: 600; }
+    .prod-row .psub { font-size: 12px; color: var(--muted); margin-top: 2px; }
+    .prod-row .ops { display: flex; gap: 6px; }
+    /* 모달 폼 */
+    .modal-bg { position: fixed; inset: 0; background: rgba(0,0,0,.45); z-index: 60; display: flex;
+                align-items: flex-start; justify-content: center; overflow-y: auto; padding: 24px 12px; }
+    .modal { background: var(--panel); border-radius: var(--radius); width: 560px; max-width: 100%;
+             box-shadow: var(--shadow-lg); padding: 22px; }
+    .modal h3 { margin: 0 0 16px; font-size: 18px; }
+    .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+    .modal-actions { display: flex; justify-content: space-between; gap: 8px; margin-top: 18px; }
+    .thumb-preview { width: 84px; height: 84px; border-radius: 10px; object-fit: cover; border: 1px solid var(--border);
+                     background: var(--panel-2); }
+    @media (max-width: 560px) { .grid2 { grid-template-columns: 1fr; } }
+  </style>
+</head>
+<body>
+  <div class="admin-wrap" id="app">
+    <div id="boot" class="notice">불러오는 중…</div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="config.js"></script>
+  <script>
+  // ====== 상수 ======
+  const S = (CONFIG && CONFIG.SUPABASE) || {};
+  const FIELDS = S.COLUMN_MAP || { name: "제품명", model: "기종", material: "재질",
+    size: "스트랩 규격", buckle: "체결 형태", color: "색상", image: "이미지", store_url: "네이버스토어" };
+  const TABLE = S.TABLE || "products";
+  const BUCKET = "product-images";
+  const app = document.getElementById("app");
+  const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
+    ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+
+  let sb = null, rows = [];
+
+  // ====== 부팅 ======
+  function boot() {
+    if (!S.URL || !S.ANON_KEY) {
+      app.innerHTML = `<div class="notice">
+        <b>아직 Supabase 가 연결되지 않았습니다.</b><br>
+        <code>config.js</code> 의 <code>SUPABASE.URL</code> / <code>ANON_KEY</code> 를 채워주세요.
+        자세한 방법은 <code>SUPABASE_SETUP.md</code> 참고.</div>`;
+      return;
+    }
+    if (!window.supabase) {
+      app.innerHTML = `<div class="notice">Supabase 라이브러리를 불러오지 못했습니다(인터넷 확인).</div>`;
+      return;
+    }
+    sb = window.supabase.createClient(S.URL, S.ANON_KEY);
+    sb.auth.getSession().then(({ data }) => {
+      if (data.session) showAdmin(); else showLogin();
+    });
+  }
+
+  // ====== 로그인 ======
+  function showLogin() {
+    app.innerHTML = `
+      <div class="login-box">
+        <h2>관리자 로그인</h2>
+        <p>Supabase 에 등록한 이메일/비밀번호로 로그인하세요.</p>
+        <div class="field"><label>이메일</label><input id="email" type="email" autocomplete="username"></div>
+        <div class="field"><label>비밀번호</label><input id="pw" type="password" autocomplete="current-password"></div>
+        <button class="btn brand full-btn" id="loginBtn">로그인</button>
+        <div class="err" id="loginErr"></div>
+        <p style="margin-top:14px"><a href="index.html">← 카탈로그로</a></p>
+      </div>`;
+    const go = async () => {
+      const email = document.getElementById("email").value.trim();
+      const password = document.getElementById("pw").value;
+      document.getElementById("loginErr").textContent = "";
+      const { error } = await sb.auth.signInWithPassword({ email, password });
+      if (error) document.getElementById("loginErr").textContent = "로그인 실패: " + error.message;
+      else showAdmin();
+    };
+    document.getElementById("loginBtn").addEventListener("click", go);
+    document.getElementById("pw").addEventListener("keydown", (e) => { if (e.key === "Enter") go(); });
+  }
+
+  // ====== 관리자 화면 ======
+  async function showAdmin() {
+    app.innerHTML = `
+      <div class="admin-top">
+        <h1>상품 관리</h1>
+        <input id="q" class="filter" placeholder="상품명 검색…" style="min-width:200px">
+        <button class="btn brand" id="addBtn">+ 새 상품</button>
+        <a class="btn" href="index.html">카탈로그</a>
+        <button class="btn ghost" id="logoutBtn">로그아웃</button>
+      </div>
+      <div id="list">불러오는 중…</div>`;
+    document.getElementById("logoutBtn").addEventListener("click", async () => { await sb.auth.signOut(); showLogin(); });
+    document.getElementById("addBtn").addEventListener("click", () => openForm(null));
+    document.getElementById("q").addEventListener("input", (e) => renderList(e.target.value.trim()));
+    await loadRows();
+  }
+
+  async function loadRows() {
+    const { data, error } = await sb.from(TABLE).select("*").order("sort", { ascending: true, nullsFirst: false });
+    if (error) { document.getElementById("list").innerHTML = `<div class="notice">목록 오류: ${esc(error.message)}</div>`; return; }
+    rows = data || [];
+    renderList("");
+  }
+
+  function renderList(term) {
+    term = (term || "").toLowerCase();
+    const list = rows.filter((r) => !term || String(r.name || "").toLowerCase().includes(term));
+    const el = document.getElementById("list");
+    if (!list.length) { el.innerHTML = `<div class="notice">상품이 없습니다. ‘+ 새 상품’으로 추가하세요.</div>`; return; }
+    el.innerHTML = `<div style="color:var(--muted);font-size:13px;margin-bottom:8px">${list.length}개</div>` +
+      list.map((r) => `
+      <div class="prod-row">
+        ${r.image ? `<img src="${esc(r.image)}" alt="">` : `<div class="noimg"></div>`}
+        <div>
+          <div class="pname">${esc(r.name)}</div>
+          <div class="psub">${[r.model, r.material, r.size, r.buckle].filter(Boolean).map(esc).join(" · ")}</div>
+        </div>
+        <div class="ops">
+          <button class="btn" data-edit="${r.id}">수정</button>
+          <button class="btn ghost" data-del="${r.id}">삭제</button>
+        </div>
+      </div>`).join("");
+    el.querySelectorAll("[data-edit]").forEach((b) => b.addEventListener("click",
+      () => openForm(rows.find((x) => String(x.id) === b.dataset.edit))));
+    el.querySelectorAll("[data-del]").forEach((b) => b.addEventListener("click",
+      () => delRow(rows.find((x) => String(x.id) === b.dataset.del))));
+  }
+
+  // ====== 추가/수정 폼 ======
+  function openForm(rec) {
+    const isNew = !rec;
+    rec = rec || {};
+    const inputs = Object.entries(FIELDS).map(([col, label]) => {
+      if (col === "image") {
+        return `<div class="field" style="grid-column:1/-1">
+          <label>${esc(label)}</label>
+          <div style="display:flex;gap:12px;align-items:center">
+            <img class="thumb-preview" id="imgPreview" src="${esc(rec.image || "")}" alt="">
+            <div style="flex:1">
+              <input id="f_image" type="text" placeholder="이미지 URL (또는 아래에서 업로드)" value="${esc(rec.image || "")}">
+              <input id="imgFile" type="file" accept="image/*" style="margin-top:8px;font-size:12px">
+              <div class="err" id="upErr"></div>
+            </div>
+          </div></div>`;
+      }
+      const isColor = col === "color";
+      return `<div class="field"${isColor ? ' style="grid-column:1/-1"' : ""}>
+        <label>${esc(label)}</label>
+        <input id="f_${col}" type="text" value="${esc(rec[col] || "")}">
+      </div>`;
+    }).join("");
+
+    const bg = document.createElement("div");
+    bg.className = "modal-bg";
+    bg.innerHTML = `
+      <div class="modal">
+        <h3>${isNew ? "새 상품 등록" : "상품 수정"}</h3>
+        <div class="grid2">
+          ${inputs}
+          <div class="field"><label>정렬 순서(숫자)</label><input id="f_sort" type="number" value="${esc(rec.sort ?? "")}"></div>
+        </div>
+        <div class="err" id="saveErr"></div>
+        <div class="modal-actions">
+          <button class="btn ghost" id="cancelBtn">취소</button>
+          <button class="btn brand" id="saveBtn">${isNew ? "등록" : "저장"}</button>
+        </div>
+      </div>`;
+    document.body.appendChild(bg);
+    const close = () => bg.remove();
+    bg.addEventListener("click", (e) => { if (e.target === bg) close(); });
+    document.getElementById("cancelBtn").addEventListener("click", close);
+
+    // 이미지 업로드
+    const fileEl = document.getElementById("imgFile");
+    if (fileEl) fileEl.addEventListener("change", async () => {
+      const file = fileEl.files[0]; if (!file) return;
+      document.getElementById("upErr").textContent = "업로드 중…";
+      const path = `${Date.now()}_${file.name.replace(/[^\w.\-]/g, "_")}`;
+      const { error } = await sb.storage.from(BUCKET).upload(path, file, { upsert: true });
+      if (error) { document.getElementById("upErr").textContent = "업로드 실패: " + error.message; return; }
+      const url = sb.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+      document.getElementById("f_image").value = url;
+      document.getElementById("imgPreview").src = url;
+      document.getElementById("upErr").textContent = "";
+    });
+
+    // 저장
+    document.getElementById("saveBtn").addEventListener("click", async () => {
+      const obj = {};
+      Object.keys(FIELDS).forEach((col) => { obj[col] = (document.getElementById("f_" + col).value || "").trim(); });
+      const sortV = document.getElementById("f_sort").value;
+      obj.sort = sortV === "" ? null : Number(sortV);
+      if (!obj.name) { document.getElementById("saveErr").textContent = "제품명은 필수입니다."; return; }
+      document.getElementById("saveErr").textContent = "저장 중…";
+      let resp;
+      if (isNew) resp = await sb.from(TABLE).insert(obj);
+      else resp = await sb.from(TABLE).update(obj).eq("id", rec.id);
+      if (resp.error) { document.getElementById("saveErr").textContent = "저장 실패: " + resp.error.message; return; }
+      close(); await loadRows();
+    });
+  }
+
+  async function delRow(rec) {
+    if (!rec) return;
+    if (!confirm(`삭제할까요?\n\n${rec.name}`)) return;
+    const { error } = await sb.from(TABLE).delete().eq("id", rec.id);
+    if (error) { alert("삭제 실패: " + error.message); return; }
+    await loadRows();
+  }
+
+  boot();
+  </script>
+</body>
+</html>
