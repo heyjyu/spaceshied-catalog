@@ -558,6 +558,8 @@ function productCategory(r) {
 }
 // 사이드바 카테고리 그룹: 공용은 "Nmm 일반형", 그 외는 기종 값.
 function productGroup(r) {
+  // 미밴드10 SET 은 미밴드와 별도 카테고리 (사이드바 레퍼런스 기준)
+  if (/미밴드10\s*SET/i.test(String(r["기종"] || ""))) return "미밴드10 SET";
   // 호환(커넥터) 기준 그룹. 공용은 베이스규격(20/22mm)으로 쪼갬.
   const conn = String(r["호환"] || "").trim();
   if (conn) {
@@ -591,15 +593,22 @@ function renderCatNav() {
   if (!nav) return;
   const counts = {};
   for (const r of allRows) { const g = productGroup(r); counts[g] = (counts[g] || 0) + 1; }
-  // 우선순위: DB categories(admin 관리) > config CATEGORY_ORDER/LABELS > 개수 많은 순
-  const groups = Object.keys(counts)
-    .filter((g) => catMeta(g).visible)
-    .sort((a, b) => {
-      const sa = catMeta(a).sort, sb = catMeta(b).sort;
-      if (sa != null || sb != null) { if (sa == null) return 1; if (sb == null) return -1; return sa - sb; }
-      return counts[b] - counts[a] || a.localeCompare(b, "ko");
-    });
-  const items = [["", "전체 카테고리", allRows.length]].concat(groups.map((g) => [g, catMeta(g).label, counts[g]]));
+  const order = CONFIG.CATEGORY_ORDER || [];
+  let groups;
+  if (CONFIG.CATEGORY_STRICT && order.length) {
+    // 지정한 카테고리"만", 지정 순서대로 (0개여도 표시 — 가민/커넥터 자리 유지)
+    groups = order.filter((g) => catMeta(g).visible);
+  } else {
+    // DB categories(admin 관리) > config CATEGORY_ORDER/LABELS > 개수 많은 순
+    groups = Object.keys(counts)
+      .filter((g) => catMeta(g).visible)
+      .sort((a, b) => {
+        const sa = catMeta(a).sort, sb = catMeta(b).sort;
+        if (sa != null || sb != null) { if (sa == null) return 1; if (sb == null) return -1; return sa - sb; }
+        return counts[b] - counts[a] || a.localeCompare(b, "ko");
+      });
+  }
+  const items = [["", "전체 카테고리", allRows.length]].concat(groups.map((g) => [g, catMeta(g).label, counts[g] || 0]));
   nav.innerHTML = items.map(([val, label, n]) => {
     const on = (filterState.category || "") === val;
     return `<button class="cat-item${on ? " active" : ""}" data-cat="${esc(val)}">
