@@ -40,8 +40,8 @@ const CONFIG = {
     ORDER: "sort.asc.nullslast",
     // DB(영문 컬럼) → 화면(한글 헤더) 매핑. 표시 순서 = 이 순서.
     COLUMN_MAP: {
-      name: "제품명", model: "기종", material: "재질", size: "스트랩 규격",
-      buckle: "체결 형태", color: "색상", image: "이미지", store_url: "네이버스토어",
+      name: "제품명", model: "기종", material: "재질", size: "규격",
+      buckle: "체결", color: "색상", image: "이미지", store_url: "네이버스토어",
     },
   },
 
