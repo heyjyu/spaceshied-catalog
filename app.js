@@ -56,6 +56,43 @@ function splitVals(v) {
     .filter(Boolean);
 }
 
+// ---- facet 값 파생 (derive) ----------------------------------------
+// 사이즈: 셀/제품명에서 폭(NNmm)만 추출. 스트랩 호환의 핵심.
+function firstMm(s) {
+  const m = String(s ?? "").match(/(\d{2})\s*mm/);
+  return m ? m[1] + "mm" : "";
+}
+// 색상: 복합 색상명을 표준 색 버킷으로 (config COLOR_BUCKETS). 복합값은 여러 색 반환.
+function colorBuckets(s) {
+  const dict = CONFIG.COLOR_BUCKETS || [];
+  const found = [];
+  for (const tok of String(s ?? "").split(/[,、\n\s/&+]+/)) {
+    if (!tok) continue;
+    for (const [canon, kws] of dict) {
+      if (kws.some((k) => tok.includes(k)) && !found.includes(canon)) found.push(canon);
+    }
+  }
+  return found;
+}
+// facet 한 행의 필터값 목록. derive 없으면 원본을 쪼갬.
+function facetValues(row, f) {
+  if (f.derive === "mm") {
+    const v = firstMm(row[f.key]) || firstMm(rowTitle(row));
+    return v ? [v] : [];
+  }
+  if (f.derive === "color") {
+    const b = colorBuckets(row[f.key]);
+    return b.length ? b : colorBuckets(rowTitle(row));
+  }
+  return splitVals(row[f.key]);
+}
+// 색상 표시 순서(드롭다운 정렬용)
+function colorOrder(v) {
+  const d = CONFIG.COLOR_BUCKETS || [];
+  const i = d.findIndex(([c]) => c === v);
+  return i < 0 ? 999 : i;
+}
+
 // ---- 데이터 로딩 ----------------------------------------------------
 function sheetUrl() {
   if (!CONFIG.SHEET_ID || CONFIG.SHEET_ID === "DEMO") return "sample-data.csv";
@@ -125,7 +162,7 @@ function detectColumns(headers, rows) {
   for (const f of CONFIG.FACETS || []) {
     const c = findCol(headers, f.hints);
     if (c && !facetCols.some((x) => x.key === c)) {
-      facetCols.push({ label: f.label, key: c });
+      facetCols.push({ label: f.label, key: c, derive: f.derive || null });
       filterState.facets[c] = "";
     }
   }
@@ -147,7 +184,7 @@ function buildSuggestIndex(rows) {
   };
   for (const r of rows) {
     if (colKeys.name) add(rowTitle(r), "상품", null);
-    for (const f of facetCols) splitVals(r[f.key]).forEach((v) => add(v, f.label, f.key));
+    for (const f of facetCols) facetValues(r, f).forEach((v) => add(v, f.label, f.key));
   }
   // 속성값을 상품명보다 먼저(짧고 필터로 바로 연결), 그다음 빈도순
   suggestItems = [...map.values()].sort((a, b) => {
@@ -166,10 +203,13 @@ function buildFacetDropdowns(rows) {
     const sel = document.createElement("select");
     sel.className = "filter facet-select";
     sel.dataset.key = f.key;
-    // 한 셀에 여러 값이면 쪼개서 각각을 옵션으로
+    // 한 셀에 여러 값이면 쪼개서 각각을 옵션으로 (derive 적용)
     const set = new Set();
-    rows.forEach((r) => splitVals(r[f.key]).forEach((v) => set.add(v)));
-    const vals = [...set].sort((a, b) => a.localeCompare(b, "ko"));
+    rows.forEach((r) => facetValues(r, f).forEach((v) => set.add(v)));
+    let vals = [...set];
+    if (f.derive === "mm") vals.sort((a, b) => parseInt(a) - parseInt(b));
+    else if (f.derive === "color") vals.sort((a, b) => colorOrder(a) - colorOrder(b));
+    else vals.sort((a, b) => a.localeCompare(b, "ko"));
     sel.innerHTML = `<option value="">${esc(f.label)} 전체</option>` +
       vals.map((v) => `<option value="${esc(v)}">${esc(v)}</option>`).join("");
     sel.addEventListener("change", (e) => {
@@ -245,8 +285,9 @@ function matchRow(data) {
     if (!Object.values(data).some((v) => String(v).toLowerCase().includes(term)))
       return false;
   }
-  for (const [key, val] of Object.entries(filterState.facets)) {
-    if (val && !splitVals(data[key]).includes(val)) return false;
+  for (const f of facetCols) {
+    const val = filterState.facets[f.key];
+    if (val && !facetValues(data, f).includes(val)) return false;
   }
   if (filterState.stock && colKeys.stock) {
     if (stockClass(data[colKeys.stock]) !== filterState.stock) return false;
