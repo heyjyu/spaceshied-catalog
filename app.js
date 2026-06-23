@@ -398,7 +398,7 @@ function buildView(rows) {
 
 // ---- 필터 ----------------------------------------------------------
 function matchRow(data) {
-  if (filterState.category && productCategory(data) !== filterState.category) return false;
+  if (filterState.category && productGroup(data) !== filterState.category) return false;
   if (filterState.lifecycle && productStatus(data) !== filterState.lifecycle) return false;
   if (filterState.favOnly && !isFav(data)) return false;
   if (filterState.search) {
@@ -495,19 +495,28 @@ function productCategory(r) {
   if (/충전|케이블|어댑터|거치|클리너|공구|USB/i.test(name)) return "액세서리";
   return "스트랩";
 }
-const CAT_ICON = { "전체": "▦", "스트랩": "⌚", "케이스": "🛡", "액세서리": "🔌" };
+// 사이드바 카테고리 그룹: 공용은 "Nmm 일반형", 그 외는 기종 값.
+function productGroup(r) {
+  const modelKey = facetCols[0] && facetCols[0].key;
+  const model = modelKey ? String(r[modelKey] || "").trim() : "";
+  if (!model || /공용|공통|범용/.test(model)) {
+    const sf = facetCols.find((f) => f.derive === "mm");
+    const mm = sf ? (firstMm(r[sf.key]) || firstMm(rowTitle(r))) : "";
+    return mm ? `${mm} 일반형` : (model || "기타");
+  }
+  return model;
+}
 function renderCatNav() {
   const nav = $("catNav");
   if (!nav) return;
-  const counts = { 스트랩: 0, 케이스: 0, 액세서리: 0 };
-  for (const r of allRows) counts[productCategory(r)]++;
-  const cats = ["전체"];
-  for (const c of ["스트랩", "케이스", "액세서리"]) if (counts[c]) cats.push(c);
-  nav.innerHTML = cats.map((c) => {
-    const n = c === "전체" ? allRows.length : counts[c];
-    const on = (filterState.category || "전체") === c;
-    return `<button class="cat-item${on ? " active" : ""}" data-cat="${c === "전체" ? "" : esc(c)}">
-      <span class="ic">${CAT_ICON[c] || "•"}</span><span class="lbl">${esc(c)}</span><span class="cnt">${n.toLocaleString("ko-KR")}</span>
+  const counts = {};
+  for (const r of allRows) { const g = productGroup(r); counts[g] = (counts[g] || 0) + 1; }
+  const groups = Object.keys(counts).sort((a, b) => counts[b] - counts[a] || a.localeCompare(b, "ko"));
+  const items = [["", "전체 카테고리", allRows.length]].concat(groups.map((g) => [g, g, counts[g]]));
+  nav.innerHTML = items.map(([val, label, n]) => {
+    const on = (filterState.category || "") === val;
+    return `<button class="cat-item${on ? " active" : ""}" data-cat="${esc(val)}">
+      <span class="lbl">${esc(label)}</span><span class="cnt">${n.toLocaleString("ko-KR")}</span>
     </button>`;
   }).join("");
   nav.querySelectorAll(".cat-item").forEach((el) => {
@@ -540,24 +549,28 @@ function rowTitle(r) {
 function renderGallery() {
   const rows = table ? table.getData("active") : allRows;
   const g = $("gallery");
+  const sizeFacet = facetCols.find((f) => f.derive === "mm");
   g.innerHTML = rows.map((r, i) => {
     const img = colKeys.image ? r[colKeys.image] : "";
-    const price = colKeys.price ? won(r[colKeys.price]) : "";
-    // 카드 부제: facet 값 2개 정도 (예: 애플워치 · 가죽)
-    const sub = facetCols.slice(0, 2).map((f) => r[f.key]).filter(Boolean).join(" · ");
-    const cls = colKeys.stock ? stockClass(r[colKeys.stock]) : null;
-    const stockBadge = cls === "out" ? '<span class="badge out">품절</span>'
-      : cls === "low" ? `<span class="badge low">재고 ${esc(r[colKeys.stock])}</span>` : "";
+    const model = facetCols[0] ? String(r[facetCols[0].key] || "").trim() : "";
+    const material = facetCols[1] ? String(r[facetCols[1].key] || "").trim() : "";
+    const size = sizeFacet ? (firstMm(r[sizeFacet.key]) || firstMm(rowTitle(r))) : "";
+    const cc = colorCountOf(r);
+    const disc = productStatus(r) === "단종";
     return `<div class="card" data-i="${i}">
+      <span class="card-status ${disc ? "disc" : "live"}">${disc ? "단종" : "출시됨"}</span>
       <button class="card-fav${isFav(r) ? " on" : ""}" data-i="${i}" aria-label="즐겨찾기">★</button>
       ${img ? `<img class="thumb" src="${esc(img)}" loading="lazy" alt="">`
             : '<div class="thumb"></div>'}
       <div class="body">
         <div class="name">${esc(rowTitle(r))}</div>
-        <div class="meta">${esc(sub)}</div>
-        <div class="row">
-          ${colorCountOf(r) ? `<span class="cc-badge">${colorCountOf(r)}색상</span>` : "<span></span>"}
-          <span class="price">${esc(price)}</span>${stockBadge}
+        <div class="card-chips">
+          ${model ? `<span class="cchip primary">${esc(model)}</span>` : ""}
+          ${material ? `<span class="cchip">${esc(material)}</span>` : ""}
+        </div>
+        <div class="card-foot">
+          ${size ? `<span class="size-badge">${esc(size)}</span>` : ""}
+          ${cc ? `<span class="cc-badge">${cc}색상</span>` : ""}
         </div>
       </div>
     </div>`;
