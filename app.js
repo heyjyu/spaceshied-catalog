@@ -567,8 +567,15 @@ function renderCatNav() {
   if (!nav) return;
   const counts = {};
   for (const r of allRows) { const g = productGroup(r); counts[g] = (counts[g] || 0) + 1; }
-  const groups = Object.keys(counts).sort((a, b) => counts[b] - counts[a] || a.localeCompare(b, "ko"));
-  const items = [["", "전체 카테고리", allRows.length]].concat(groups.map((g) => [g, g, counts[g]]));
+  // 순서: config CATEGORY_ORDER 우선(분기마다 여기만 수정), 나머지는 개수 많은 순
+  const order = CONFIG.CATEGORY_ORDER || [];
+  const labels = CONFIG.CATEGORY_LABELS || {};
+  const groups = Object.keys(counts).sort((a, b) => {
+    const ia = order.indexOf(a), ib = order.indexOf(b);
+    if (ia !== ib) { if (ia === -1) return 1; if (ib === -1) return -1; return ia - ib; }
+    return counts[b] - counts[a] || a.localeCompare(b, "ko");
+  });
+  const items = [["", "전체 카테고리", allRows.length]].concat(groups.map((g) => [g, labels[g] || g, counts[g]]));
   nav.innerHTML = items.map(([val, label, n]) => {
     const on = (filterState.category || "") === val;
     return `<button class="cat-item${on ? " active" : ""}" data-cat="${esc(val)}">
