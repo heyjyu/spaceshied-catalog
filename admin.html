@@ -159,6 +159,14 @@
   }
 
   // ====== 추가/수정 폼 ======
+  // 드롭다운(datalist)으로 만들 컬럼: 기종·재질·규격·체결. 기존 값 선택 + 새 값 입력 가능
+  const DROPDOWN = new Set(["model", "material", "size", "buckle"]);
+  function distinctVals(col) {
+    const set = new Set();
+    rows.forEach((r) => { const v = String(r[col] || "").trim(); if (v) set.add(v); });
+    return [...set].sort((a, b) => a.localeCompare(b, "ko"));
+  }
+
   function openForm(rec) {
     const isNew = !rec;
     rec = rec || {};
@@ -175,6 +183,14 @@
             </div>
           </div></div>`;
       }
+      if (DROPDOWN.has(col)) {
+        const opts = distinctVals(col).map((v) => `<option value="${esc(v)}">`).join("");
+        return `<div class="field">
+          <label>${esc(label)}</label>
+          <input id="f_${col}" list="dl_${col}" value="${esc(rec[col] || "")}" placeholder="선택 또는 입력" autocomplete="off">
+          <datalist id="dl_${col}">${opts}</datalist>
+        </div>`;
+      }
       const isColor = col === "color";
       return `<div class="field"${isColor ? ' style="grid-column:1/-1"' : ""}>
         <label>${esc(label)}</label>
@@ -189,6 +205,7 @@
         <h3>${isNew ? "새 상품 등록" : "상품 수정"}</h3>
         <div class="grid2">
           ${inputs}
+          <div class="field"><label>샘플링 날짜 <span style="color:var(--muted);font-weight:400">(월별 검색용)</span></label><input id="f_sampling_date" type="date" value="${esc(rec.sampling_date || "")}"></div>
           <div class="field"><label>정렬 순서(숫자)</label><input id="f_sort" type="number" value="${esc(rec.sort ?? "")}"></div>
         </div>
         <div class="err" id="saveErr"></div>
@@ -222,6 +239,7 @@
       Object.keys(FIELDS).forEach((col) => { obj[col] = (document.getElementById("f_" + col).value || "").trim(); });
       const sortV = document.getElementById("f_sort").value;
       obj.sort = sortV === "" ? null : Number(sortV);
+      obj.sampling_date = document.getElementById("f_sampling_date").value || null;
       if (!obj.name) { document.getElementById("saveErr").textContent = "제품명은 필수입니다."; return; }
       document.getElementById("saveErr").textContent = "저장 중…";
       let resp;
