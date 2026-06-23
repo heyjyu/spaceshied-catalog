@@ -37,6 +37,9 @@
     table.matrix th, table.matrix td { border-bottom:1px solid var(--border-soft); white-space:nowrap; }
     table.matrix thead th { position:sticky; top:0; z-index:3; background:var(--panel-2); padding:12px 10px; font-weight:700; text-align:center; color:var(--muted); font-size:12.5px; }
     table.matrix thead th .colsub { font-size:11px; color:var(--muted); font-weight:500; }
+    table.matrix thead th .colcov { font-size:11px; font-weight:700; color:var(--ok); margin-top:3px; }
+    table.matrix thead th .colcov.zero { color:var(--warn); }
+    table.matrix thead th.col-empty { background:rgba(191,106,2,.07); }
     table.matrix thead th.base-h { left:0; z-index:4; text-align:left; min-width:250px; color:var(--text); font-size:14px; border-right:2px solid var(--border); }
     table.matrix th.base-c { position:sticky; left:0; z-index:2; background:var(--panel); text-align:left; padding:11px 14px; font-weight:600; max-width:320px; overflow:hidden; text-overflow:ellipsis; border-right:2px solid var(--border); font-size:13.5px; }
     table.matrix tbody tr:hover th.base-c { background: var(--brand-soft); }
@@ -156,6 +159,13 @@
     return m || "(미분류)";
   }
 
+  // 항상 보여줄 목표 커넥터(호환 워치) — 비어 있어도 열로 노출 → 빈 열 = 미진출 시장(큰 기회)
+  // 값은 DB connector 컬럼과 동일하게 맞춤. '가민' 등은 아직 데이터 없음(=전부 빈칸).
+  const TARGET_CONNECTORS = [
+    "공용(범용)","갤럭시 워치(러그)","갤럭시 워치 울트라","갤럭시 워치(날개)","갤럭시 워치(원클릭)",
+    "갤럭시 핏3","애플워치","샤오미 미밴드","화웨이 워치핏","아미즈핏 티렉스","가민","보이스캐디","프레스티지(프리미엄)",
+  ];
+
   let PRODUCTS=[], COLS=[], FAMS=[];
 
   function build(){
@@ -171,9 +181,10 @@
   function rebuild(){
     const mat = document.getElementById("matSel").value;
     const rows = mat ? PRODUCTS.filter(r=>r._mat===mat) : PRODUCTS;
-    // 커넥터 열: 빈도순, 공용 맨 앞
+    // 커넥터 열: 목표 커넥터(항상 노출, 정해진 순서) + 데이터에만 있는 기타 커넥터를 뒤에
     const cf={}; rows.forEach(r=>cf[r._conn]=(cf[r._conn]||0)+1);
-    COLS = Object.keys(cf).sort((a,b)=> a==="공용(범용)"?-1:b==="공용(범용)"?1: cf[b]-cf[a]);
+    const extra = Object.keys(cf).filter(c=>!TARGET_CONNECTORS.includes(c)).sort((a,b)=>cf[b]-cf[a]);
+    COLS = [...TARGET_CONNECTORS, ...extra];
     const map={};
     rows.forEach(r=>{ if(!r._fam) return; (map[r._fam]=map[r._fam]||{}); (map[r._fam][r._conn]=map[r._fam][r._conn]||[]).push(r); });
     FAMS = Object.entries(map).map(([fam,byConn])=>{ const exp=Object.keys(byConn).length; return {fam,byConn,exp,gaps:COLS.length-exp}; });
@@ -200,8 +211,11 @@
       ["빈칸 (신제품 후보·2+ 기준)",totalGaps,"gap"],["커넥터(호환) 종류",COLS.length,""],
     ].map(([l,n,c])=>`<div class="map-stat ${c}"><div class="n">${n}</div><div class="l">${l}</div></div>`).join("");
 
+    // 커버리지 = 전체 베이스 기준(화면 스코프와 무관) → 진짜 미진출(가민)만 0
+    const colCov = COLS.map(c => FAMS.filter(f => f.byConn[c]).length);
     let html=`<thead><tr><th class="base-h">기본 디자인 <span class="colsub">(${rows.length})</span></th>`;
-    COLS.forEach(c=>{ const m=c.match(/^(.*?)\((.+)\)$/); html+=`<th title="${c}">${m?m[1].trim():c}${m?`<div class="colsub">${m[2]}</div>`:""}</th>`; });
+    COLS.forEach((c,i)=>{ const m=c.match(/^(.*?)\((.+)\)$/); const cov=colCov[i];
+      html+=`<th title="${c} — ${cov}개 베이스에 적용" class="${cov===0?"col-empty":""}">${m?m[1].trim():c}${m?`<div class="colsub">${m[2]}</div>`:""}<div class="colcov ${cov===0?"zero":""}">${cov===0?"미진출":cov}</div></th>`; });
     html+=`</tr></thead><tbody>`;
     rows.forEach(f=>{
       html+=`<tr><th class="base-c" title="${f.fam}">${f.fam}<span class="exp">${f.exp}/${COLS.length}</span></th>`;
