@@ -13,9 +13,36 @@ let suggestItems = [];   // 자동완성 후보 [{text, lc, type, key}]
 let suggestSel = -1;     // 키보드 선택 인덱스
 
 // 현재 필터 상태
-const filterState = { search: "", facets: {}, stock: "" };
+const filterState = { search: "", facets: {}, stock: "", favOnly: false };
 
 const $ = (id) => document.getElementById(id);
+
+// ---- 즐겨찾기 (localStorage) ---------------------------------------
+let favs = (() => {
+  try { return new Set(JSON.parse(localStorage.getItem("catalog_favs") || "[]")); }
+  catch (e) { return new Set(); }
+})();
+function favKey(r) {
+  const m = facetCols[0] ? (r[facetCols[0].key] || "") : "";
+  return (rowTitle(r) || "") + "||" + m;
+}
+function isFav(r) { return favs.has(favKey(r)); }
+function saveFavs() {
+  try { localStorage.setItem("catalog_favs", JSON.stringify([...favs])); } catch (e) {}
+}
+function toggleFav(r) {
+  const k = favKey(r);
+  if (favs.has(k)) favs.delete(k); else favs.add(k);
+  saveFavs();
+  updateFavUI();
+  if (filterState.favOnly) applyFilters();
+  return favs.has(k);
+}
+function updateFavUI() {
+  const c = $("favCount"); if (c) c.textContent = favs.size;
+  const btn = $("btnFav");
+  if (btn) btn.classList.toggle("active", filterState.favOnly);
+}
 
 // ---- 유틸 -----------------------------------------------------------
 function findCol(headers, hints) {
@@ -74,17 +101,20 @@ function colorBuckets(s) {
   }
   return found;
 }
-// facet 한 행의 필터값 목록. derive 없으면 원본을 쪼갬.
+// facet 한 행의 필터값 목록. derive 없으면 원본을 쪼갬. exclude 값은 제거.
 function facetValues(row, f) {
+  let vals;
   if (f.derive === "mm") {
     const v = firstMm(row[f.key]) || firstMm(rowTitle(row));
-    return v ? [v] : [];
-  }
-  if (f.derive === "color") {
+    vals = v ? [v] : [];
+  } else if (f.derive === "color") {
     const b = colorBuckets(row[f.key]);
-    return b.length ? b : colorBuckets(rowTitle(row));
+    vals = b.length ? b : colorBuckets(rowTitle(row));
+  } else {
+    vals = splitVals(row[f.key]);
   }
-  return splitVals(row[f.key]);
+  if (f.exclude && f.exclude.length) vals = vals.filter((v) => !f.exclude.includes(v));
+  return vals;
 }
 // 색상 표시 순서(드롭다운 정렬용)
 function colorOrder(v) {
@@ -162,7 +192,7 @@ function detectColumns(headers, rows) {
   for (const f of CONFIG.FACETS || []) {
     const c = findCol(headers, f.hints);
     if (c && !facetCols.some((x) => x.key === c)) {
-      facetCols.push({ label: f.label, key: c, derive: f.derive || null });
+      facetCols.push({ label: f.label, key: c, derive: f.derive || null, exclude: f.exclude || null });
       filterState.facets[c] = "";
     }
   }
@@ -210,7 +240,7 @@ function buildFacetDropdowns(rows) {
     if (f.derive === "mm") vals.sort((a, b) => parseInt(a) - parseInt(b));
     else if (f.derive === "color") vals.sort((a, b) => colorOrder(a) - colorOrder(b));
     else vals.sort((a, b) => a.localeCompare(b, "ko"));
-    sel.innerHTML = `<option value="">${esc(f.label)} 전체</option>` +
+    sel.innerHTML = `<option value="">${esc(f.label)}</option>` +
       vals.map((v) => `<option value="${esc(v)}">${esc(v)}</option>`).join("");
     sel.addEventListener("change", (e) => {
       filterState.facets[f.key] = e.target.value;
@@ -222,14 +252,40 @@ function buildFacetDropdowns(rows) {
 
 // ---- Tabulator 컬럼 구성 -------------------------------------------
 function buildColumns(headers) {
+  const hide = new Set(CONFIG.HIDE_COLUMNS || []);
+  const colorKey = (facetCols.find((f) => f.derive === "color") || {}).key;
+  const sizeKey = (facetCols.find((f) => f.derive === "mm") || {}).key;
   const cols = [];
+  // 맨 앞: 즐겨찾기 별 컬럼
+  cols.push({
+    title: "", field: "_fav", width: 46, hozAlign: "center", headerSort: false,
+    resizable: false, cssClass: "col-fav",
+    formatter: (cell) => `<span class="fav-star${isFav(cell.getRow().getData()) ? " on" : ""}">★</span>`,
+  });
   for (const h of headers) {
+    if (hide.has(h)) continue;                    // 내부 컬럼 숨김(원본탭 등)
     const col = { title: h, field: h, resizable: true };
     if (h === colKeys.image) {
-      col.width = 64; col.headerSort = false;
+      col.width = 70; col.headerSort = false; col.title = "사진";
       col.formatter = (cell) => {
         const v = cell.getValue();
-        return v ? `<img class="cell-thumb" src="${esc(v)}" loading="lazy" alt="">` : "";
+        return v ? `<img class="cell-thumb" src="${esc(v)}" loading="lazy" alt="">`
+                 : `<span class="cell-noimg">—</span>`;
+      };
+    } else if (h === colorKey) {
+      // 색상: 표준색 스와치 동그라미
+      col.formatter = (cell) => {
+        const cs = facetValues(cell.getRow().getData(), facetCols.find((f) => f.key === colorKey));
+        if (!cs.length) return `<span class="cell-noimg">—</span>`;
+        const hex = CONFIG.COLOR_HEX || {};
+        return `<span class="swatches">` + cs.slice(0, 6).map((c) =>
+          `<span class="swatch" style="background:${hex[c] || "#ccc"}" title="${esc(c)}"></span>`).join("") +
+          (cs.length > 6 ? `<span class="swatch-more">+${cs.length - 6}</span>` : "") + `</span>`;
+      };
+    } else if (h === sizeKey) {
+      col.formatter = (cell) => {
+        const v = firstMm(cell.getValue()) || firstMm(rowTitle(cell.getRow().getData()));
+        return v ? `<span class="size-badge">${esc(v)}</span>` : `<span class="cell-noimg">—</span>`;
       };
     } else if (h === colKeys.link) {
       col.formatter = (cell) => {
@@ -273,13 +329,19 @@ function buildView(rows) {
     table.setFilter(matchRow);
     renderStats();
     updateFilterCount();
+    updateFavUI();
     setView(viewMode); // 모바일 기본 갤러리 등 현재 뷰모드 반영
   });
-  table.on("rowClick", (e, row) => openDetail(row.getData()));
+  table.on("rowClick", (e, row) => {
+    const star = e.target.closest(".fav-star");
+    if (star) { toggleFav(row.getData()); star.classList.toggle("on", isFav(row.getData())); return; }
+    openDetail(row.getData());
+  });
 }
 
 // ---- 필터 ----------------------------------------------------------
 function matchRow(data) {
+  if (filterState.favOnly && !isFav(data)) return false;
   if (filterState.search) {
     const term = filterState.search.toLowerCase();
     if (!Object.values(data).some((v) => String(v).toLowerCase().includes(term)))
@@ -370,6 +432,7 @@ function renderGallery() {
     const stockBadge = cls === "out" ? '<span class="badge out">품절</span>'
       : cls === "low" ? `<span class="badge low">재고 ${esc(r[colKeys.stock])}</span>` : "";
     return `<div class="card" data-i="${i}">
+      <button class="card-fav${isFav(r) ? " on" : ""}" data-i="${i}" aria-label="즐겨찾기">★</button>
       ${img ? `<img class="thumb" src="${esc(img)}" loading="lazy" alt="">`
             : '<div class="thumb"></div>'}
       <div class="body">
@@ -379,6 +442,14 @@ function renderGallery() {
       </div>
     </div>`;
   }).join("");
+  // 즐겨찾기 별 클릭 (상세 안 열리게 먼저 처리)
+  g.querySelectorAll(".card-fav").forEach((el) => {
+    el.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const r = rows[Number(el.dataset.i)];
+      el.classList.toggle("on", toggleFav(r));
+    });
+  });
   // 카드 클릭 → 상세
   g.querySelectorAll(".card").forEach((el) => {
     el.addEventListener("click", () => openDetail(rows[Number(el.dataset.i)]));
@@ -555,8 +626,8 @@ function getCompatible(r, limit = 6) {
 function openDetail(r) {
   const img = colKeys.image ? r[colKeys.image] : "";
   const link = colKeys.link ? r[colKeys.link] : "";
-  // 이미지/링크/상품명은 위에서 따로 표시하므로 속성목록에선 제외
-  const skip = new Set([colKeys.image, colKeys.name].filter(Boolean));
+  // 이미지/링크/상품명은 위에서 따로 표시하므로 속성목록에선 제외 + 내부 컬럼(원본탭) 숨김
+  const skip = new Set([colKeys.image, colKeys.name, ...(CONFIG.HIDE_COLUMNS || [])].filter(Boolean));
   const rows = headersAll.filter((h) => !skip.has(h)).map((h) => {
     let val = r[h];
     if (h === colKeys.price) val = won(val);
@@ -604,7 +675,10 @@ function openDetail(r) {
   $("detail").innerHTML = `
     <div class="detail-head">
       <strong>상품 상세</strong>
-      <button class="btn ghost" id="btnCloseDetail">✕ 닫기</button>
+      <div class="detail-head-actions">
+        <button class="detail-fav${isFav(r) ? " on" : ""}" id="btnDetailFav">★ 즐겨찾기</button>
+        <button class="btn ghost" id="btnCloseDetail">✕ 닫기</button>
+      </div>
     </div>
     <div class="detail-body">
       ${img ? `<img class="detail-img" src="${esc(img)}" alt="">`
@@ -616,6 +690,9 @@ function openDetail(r) {
       ${simHtml}
     </div>`;
   $("btnCloseDetail").addEventListener("click", closeDetail);
+  $("btnDetailFav").addEventListener("click", (e) => {
+    e.currentTarget.classList.toggle("on", toggleFav(r));
+  });
   // 추천 카드 클릭 → 그 제품 상세로
   $("detail").querySelectorAll(".sim-card").forEach((el) => {
     el.addEventListener("click", () => openDetail(reco[Number(el.dataset.ri)]));
@@ -660,6 +737,14 @@ function init() {
   $("btnClear").addEventListener("click", clearFilters);
   $("btnTable").addEventListener("click", () => setView("table"));
   $("btnGallery").addEventListener("click", () => setView("gallery"));
+
+  // 즐겨찾기만 보기 토글
+  const favBtn = $("btnFav");
+  if (favBtn) favBtn.addEventListener("click", () => {
+    filterState.favOnly = !filterState.favOnly;
+    updateFavUI();
+    applyFilters();
+  });
 
   // 모바일: 필터 패널 접기/펴기
   $("btnFilters").addEventListener("click", () => {
