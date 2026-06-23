@@ -15,17 +15,25 @@
     .map-controls select, .map-controls input { padding:10px 14px; border:1px solid var(--border); border-radius:var(--radius-sm); background:var(--panel); color:var(--text); font-size:14px; min-width:160px; }
     .legend { display:flex; flex-wrap:wrap; gap:16px; align-items:center; margin-left:auto; }
     .legend .lg { display:inline-flex; align-items:center; gap:7px; font-size:13px; color:var(--muted); }
-    .legend .sw { width:16px; height:16px; border-radius:5px; }
+    .legend .sw { width:16px; height:16px; border-radius:5px; border:1px solid rgba(0,0,0,.12); }
+    [data-theme="dark"] .legend .sw { border-color: rgba(255,255,255,.18); }
     .seg { display:inline-flex; background: var(--panel-2); border:1px solid var(--border); border-radius:var(--radius-pill); padding:3px; }
     .seg button { border:none; background:transparent; color:var(--muted); padding:7px 15px; border-radius:var(--radius-pill); cursor:pointer; font-size:13px; font-weight:600; }
     .seg button.on { background: var(--brand); color:#fff; }
 
     /* 상태 색 (셀 + 레전드 공통) */
-    .sw.st-active, .cell.st-active   { background:#dcf3e4; color:#15924a; }
-    .sw.st-planned,.cell.st-planned  { background:#dbe7fe; color:#2563eb; }
-    .sw.st-partial,.cell.st-partial  { background:#fbeecb; color:#b07403; }
-    .sw.st-sampling,.cell.st-sampling{ background:#e9e1fb; color:#7c4dff; }
-    .sw.st-discont, .cell.st-discont { background:#e9e9ed; color:#9aa0a6; }
+    /* 셀: 옅은 배경(셀 안 마크 가독성) */
+    .cell.st-active   { background:#dcf3e4; color:#15924a; }
+    .cell.st-planned  { background:#dbe7fe; color:#2563eb; }
+    .cell.st-partial  { background:#fbeecb; color:#b07403; }
+    .cell.st-sampling { background:#e9e1fb; color:#7c4dff; }
+    .cell.st-discont  { background:#e9e9ed; color:#9aa0a6; }
+    /* 레전드 스와치: 진한 단색(잘 보이게) */
+    .sw.st-active   { background:#34c759; }
+    .sw.st-planned  { background:#3b82f6; }
+    .sw.st-partial  { background:#f5a623; }
+    .sw.st-sampling { background:#a855f7; }
+    .sw.st-discont  { background:#c2c2c8; }
     [data-theme="dark"] .cell.st-active   { background:#123524; color:#5fd98c; }
     [data-theme="dark"] .cell.st-planned  { background:#16294d; color:#7eb0ff; }
     [data-theme="dark"] .cell.st-partial  { background:#3a2c0e; color:#e6b53d; }
@@ -254,7 +262,10 @@
   document.getElementById("matSel").onchange=rebuild;
   document.getElementById("sortSel").onchange=render;
   document.getElementById("search").oninput=render;
-  document.getElementById("btnTheme").onclick=()=>{ const t=document.documentElement.dataset.theme==="dark"?"light":"dark"; document.documentElement.dataset.theme=t; localStorage.setItem("theme",t); };
+  const btnTheme = document.getElementById("btnTheme");
+  function syncThemeIcon(){ btnTheme.textContent = document.documentElement.dataset.theme==="dark" ? "☀️" : "🌙"; }
+  syncThemeIcon();
+  btnTheme.onclick=()=>{ const t=document.documentElement.dataset.theme==="dark"?"light":"dark"; document.documentElement.dataset.theme=t; localStorage.setItem("theme",t); syncThemeIcon(); };
 
   (function load(){
     if(S){
