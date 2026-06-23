@@ -1059,10 +1059,6 @@ function init() {
     try { localStorage.setItem("theme", next); } catch (e) {}
     themeIcon();
   });
-  $("btnReload").addEventListener("click", () => {
-    if (table) { table.destroy(); table = null; }
-    loadData();
-  });
   $("overlay").addEventListener("click", closeDetail);
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDetail(); });
 
