@@ -77,25 +77,12 @@
         </div>
       </div>
       <div class="field">
-        <label>색상 (쉼표로 여러 개)</label>
+        <label>색상</label>
         <input type="text" name="색상" placeholder="예) 블랙, 화이트, 네이비" />
       </div>
-      <div class="row2">
-        <div class="field">
-          <label>샘플링 날짜</label>
-          <input type="date" name="샘플링날짜" />
-        </div>
-        <div class="field">
-          <label>컨텐츠 제작자</label>
-          <input type="text" name="컨텐츠제작자" placeholder="담당자명" />
-        </div>
-      </div>
       <div class="field">
-        <label>등록 채널</label>
-        <div class="checks">
-          <label><input type="checkbox" name="쿠팡등록" /> 쿠팡 등록</label>
-          <label><input type="checkbox" name="네이버등록" /> 네이버 등록</label>
-        </div>
+        <label>샘플링 날짜</label>
+        <input type="date" name="샘플링날짜" />
       </div>
       <div class="field">
         <label>대표 이미지</label>
@@ -135,8 +122,6 @@
       const fd = new FormData($("f"));
       const data = {};
       for (const [k, v] of fd.entries()) data[k] = v;
-      data["쿠팡등록"] = $("f").쿠팡등록.checked;
-      data["네이버등록"] = $("f").네이버등록.checked;
       if (imageBase64) { data.imageBase64 = imageBase64; data.imageName = imageName; }
 
       $("submitBtn").disabled = true; $("submitBtn").textContent = "저장 중…";
