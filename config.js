@@ -45,6 +45,7 @@ const CONFIG = {
       material: "재질", size: "규격",
       buckle: "체결", color: "색상", color_count: "색상수",
       image: "이미지", store_url: "네이버스토어", status: "상태",
+      coupang_url: "쿠팡링크", coupang_stock: "쿠팡재고", coupang_synced: "쿠팡기준일",
     },
   },
 
@@ -70,7 +71,7 @@ const CONFIG = {
   ],
 
   // 표에서 숨길 내부 컬럼(원본탭 등 손님에게 안 보일 것)
-  HIDE_COLUMNS: ["원본탭", "상태", "색상수", "네이버스토어", "베이스그룹", "형태"],
+  HIDE_COLUMNS: ["원본탭", "상태", "색상수", "네이버스토어", "베이스그룹", "형태", "쿠팡링크", "쿠팡재고", "쿠팡기준일"],
 
   // ===== 왼쪽 사이드바 카테고리 (분기마다 여기만 수정) =====
   //  CATEGORY_STRICT: true 면 아래 CATEGORY_ORDER 에 적은 것"만" 그 순서대로 표시

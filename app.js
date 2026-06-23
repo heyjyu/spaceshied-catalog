@@ -298,8 +298,11 @@ function setStatus(msg, isError) {
 // ---- 컬럼/필터 자동감지 --------------------------------------------
 function detectColumns(headers, rows) {
   colKeys = {};
+  // 쿠팡* 컬럼은 상세 드로어에서 전용 처리(버튼/재고) → 일반 특수컬럼(link/stock 등) 자동감지에서 제외.
+  //  ("쿠팡링크"가 link 힌트 '링크'를, "쿠팡재고"가 stock 힌트 '재고'를 가로채는 것 방지)
+  const detectHeaders = headers.filter((h) => !/^쿠팡/.test(h));
   for (const [type, hints] of Object.entries(CONFIG.COLUMN_HINTS)) {
-    const c = findCol(headers, hints);
+    const c = findCol(detectHeaders, hints);
     if (c) colKeys[type] = c;
   }
   // 필터(facet) 드롭다운 컬럼
@@ -886,6 +889,9 @@ function getCompatible(r, limit = 6) {
 function openDetail(r) {
   const img = colKeys.image ? r[colKeys.image] : "";
   const link = colKeys.link ? r[colKeys.link] : "";
+  const coupangUrl = String(r["쿠팡링크"] || "").trim();
+  const coupangStock = String(r["쿠팡재고"] || "").trim();
+  const coupangSynced = String(r["쿠팡기준일"] || "").trim();
   const mf = facetCols.find((f) => f.label === "기종") || facetCols[0];
   const tf = facetCols.find((f) => f.label === "재질");
   const model = mf ? String(r[mf.key] || "").trim() : "";
@@ -963,7 +969,12 @@ function openDetail(r) {
         ${material ? `<div class="detail-eyebrow">${esc(material)}</div>` : ""}
         <h2 class="detail-title">${esc(rowTitle(r))}</h2>
         <div class="detail-chips">${chips}</div>
-        <div class="dpane" data-pane="info"><div class="attrs">${attrs}</div>${link ? `<a class="store-btn" href="${esc(link)}" target="_blank" rel="noopener">네이버 스토어에서 보기 ↗</a>` : ""}</div>
+        <div class="dpane" data-pane="info"><div class="attrs">${attrs}</div>
+          ${coupangUrl && coupangStock !== "" ? `<div class="attr"><div class="k">쿠팡 재고</div><div class="v">${esc(coupangStock)}개${coupangSynced ? ` <span style="color:var(--muted);font-size:12px">(${esc(coupangSynced)} 기준)</span>` : ""}</div></div>` : ""}
+          <div style="display:flex;flex-wrap:wrap;gap:8px">
+            ${link ? `<a class="store-btn" href="${esc(link)}" target="_blank" rel="noopener">네이버 스토어에서 보기 ↗</a>` : ""}
+            ${coupangUrl ? `<a class="store-btn" style="background:#ee2b2b" href="${esc(coupangUrl)}" target="_blank" rel="noopener">쿠팡에서 보기 ↗</a>` : ""}
+          </div></div>
         <div class="dpane hidden" data-pane="color">${colorPane}</div>
         <div class="dpane hidden" data-pane="compat">${compatPane}</div>
         <div class="dpane hidden" data-pane="similar">${simPane}</div>
