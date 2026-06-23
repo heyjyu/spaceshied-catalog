@@ -585,5 +585,28 @@ main { padding: 18px 24px 48px; max-width: 1400px; margin: 0 auto; }
 [data-theme="dark"] .card-status.live { background: #133520; color: #4ade80; }
 [data-theme="dark"] .card-status.disc { background: #3a1715; color: #f87171; }
 
+/* 상태 5종 색 (런칭 매트릭스와 동일) — 카드/상세칩 배지 */
+.card-status.st-active,  .dchip.st-active   { background: #dcf3e4; color: #15924a; }
+.card-status.st-planned, .dchip.st-planned  { background: #dbe7fe; color: #2563eb; }
+.card-status.st-partial, .dchip.st-partial  { background: #fbeecb; color: #b07403; }
+.card-status.st-sampling,.dchip.st-sampling { background: #e9e1fb; color: #7c4dff; }
+.card-status.st-discont, .dchip.st-discont  { background: #e9e9ed; color: #9aa0a6; }
+[data-theme="dark"] .card-status.st-active,  [data-theme="dark"] .dchip.st-active   { background: #123524; color: #5fd98c; }
+[data-theme="dark"] .card-status.st-planned, [data-theme="dark"] .dchip.st-planned  { background: #16294d; color: #7eb0ff; }
+[data-theme="dark"] .card-status.st-partial, [data-theme="dark"] .dchip.st-partial  { background: #3a2c0e; color: #e6b53d; }
+[data-theme="dark"] .card-status.st-sampling,[data-theme="dark"] .dchip.st-sampling { background: #2a1f47; color: #b69bff; }
+[data-theme="dark"] .card-status.st-discont, [data-theme="dark"] .dchip.st-discont  { background: #2a2a2e; color: #86868b; }
+/* 통계 카드 값 — 상태 색(글자만) */
+.stat-card .value.st-active { color: #15924a; }
+.stat-card .value.st-planned { color: #2563eb; }
+.stat-card .value.st-partial { color: #b07403; }
+.stat-card .value.st-sampling { color: #7c4dff; }
+.stat-card .value.st-discont { color: #9aa0a6; }
+[data-theme="dark"] .stat-card .value.st-active { color: #5fd98c; }
+[data-theme="dark"] .stat-card .value.st-planned { color: #7eb0ff; }
+[data-theme="dark"] .stat-card .value.st-partial { color: #e6b53d; }
+[data-theme="dark"] .stat-card .value.st-sampling { color: #b69bff; }
+[data-theme="dark"] .stat-card .value.st-discont { color: #86868b; }
+
 /* 테마 토글 버튼 */
 #btnTheme { font-size: 16px; }

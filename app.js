@@ -15,9 +15,22 @@ let suggestSel = -1;     // 키보드 선택 인덱스
 // 현재 필터 상태
 const filterState = { search: "", facets: {}, stock: "", favOnly: false, category: "", lifecycle: "" };
 
-// 상품 상태: "상태" 값이 단종이면 단종, 아니면(빈값 포함) 진행
-function productStatus(r) {
-  return String(r["상태"] || "").trim() === "단종" ? "단종" : "진행";
+// 상품 상태 5종 (런칭 매트릭스와 동일 정의/색). active=진행/출시
+const STATUS_DEF = {
+  active:   { label: "출시", cls: "st-active" },
+  planned:  { label: "기획", cls: "st-planned" },
+  partial:  { label: "일부", cls: "st-partial" },
+  sampling: { label: "샘플", cls: "st-sampling" },
+  discont:  { label: "단종", cls: "st-discont" },
+};
+const STATUS_ORDER = ["active", "planned", "partial", "sampling", "discont"];
+function statusKey(r) {
+  const s = String(r["상태"] || "").trim();
+  if (/단종|disc/i.test(s)) return "discont";
+  if (/기획|계획|plan/i.test(s)) return "planned";
+  if (/샘플|sampl/i.test(s)) return "sampling";
+  if (/일부|부분|partial/i.test(s)) return "partial";
+  return "active"; // 진행/출시/빈값
 }
 
 const $ = (id) => document.getElementById(id);
@@ -399,7 +412,7 @@ function buildView(rows) {
 // ---- 필터 ----------------------------------------------------------
 function matchRow(data) {
   if (filterState.category && productGroup(data) !== filterState.category) return false;
-  if (filterState.lifecycle && productStatus(data) !== filterState.lifecycle) return false;
+  if (filterState.lifecycle && statusKey(data) !== filterState.lifecycle) return false;
   if (filterState.favOnly && !isFav(data)) return false;
   if (filterState.search) {
     const term = filterState.search.toLowerCase();
@@ -455,21 +468,22 @@ function clearFilters() {
 function renderStats() {
   const active = table ? table.getData("active") : allRows;
   const ko = (n) => n.toLocaleString("ko-KR");
-  let prog = 0, disc = 0;
-  for (const r of allRows) (productStatus(r) === "단종" ? disc++ : prog++);
+  const counts = {};
+  for (const r of allRows) { const k = statusKey(r); counts[k] = (counts[k] || 0) + 1; }
   const filtering = active.length !== allRows.length;
 
   const cards = [];
-  if (filtering) cards.push({ label: "표시 중", value: ko(active.length), cls: "brand" });
+  if (filtering) cards.push({ label: "표시 중", value: ko(active.length), vcls: "brand" });
   cards.push({ label: "전체", value: ko(allRows.length), life: "" });
-  cards.push({ label: "진행", value: ko(prog), life: "진행", cls: "ok" });
-  cards.push({ label: "단종", value: ko(disc), life: "단종", cls: disc ? "danger" : "" });
+  for (const k of STATUS_ORDER) {
+    if (counts[k]) cards.push({ label: STATUS_DEF[k].label, value: ko(counts[k]), life: k, vcls: STATUS_DEF[k].cls });
+  }
 
   $("stats").innerHTML = cards.map((c) => {
     const click = c.life !== undefined;
     const on = click && filterState.lifecycle === c.life;
     return `<div class="stat-card${click ? " clickable" : ""}${on ? " active" : ""}"${click ? ` data-life="${esc(c.life)}"` : ""}>` +
-      `<div class="label">${c.label}</div><div class="value ${c.cls || ""}">${c.value}</div></div>`;
+      `<div class="label">${c.label}</div><div class="value ${c.vcls || ""}">${c.value}</div></div>`;
   }).join("");
 
   $("stats").querySelectorAll(".stat-card.clickable").forEach((el) => {
@@ -556,9 +570,9 @@ function renderGallery() {
     const material = facetCols[1] ? String(r[facetCols[1].key] || "").trim() : "";
     const size = sizeFacet ? (firstMm(r[sizeFacet.key]) || firstMm(rowTitle(r))) : "";
     const cc = colorCountOf(r);
-    const disc = productStatus(r) === "단종";
+    const st = STATUS_DEF[statusKey(r)];
     return `<div class="card" data-i="${i}">
-      <span class="card-status ${disc ? "disc" : "live"}">${disc ? "단종" : "출시됨"}</span>
+      <span class="card-status ${st.cls}">${st.label}</span>
       <button class="card-fav${isFav(r) ? " on" : ""}" data-i="${i}" aria-label="즐겨찾기">★</button>
       ${img ? `<img class="thumb" src="${esc(img)}" loading="lazy" alt="">`
             : '<div class="thumb"></div>'}
@@ -763,7 +777,7 @@ function openDetail(r) {
   const material = facetCols[1] ? String(r[facetCols[1].key] || "").trim() : "";
   const sf = facetCols.find((f) => f.derive === "mm");
   const size = sf ? (firstMm(r[sf.key]) || firstMm(rowTitle(r))) : "";
-  const disc = productStatus(r) === "단종";
+  const st = STATUS_DEF[statusKey(r)];
   const colorFacet = facetCols.find((f) => f.derive === "color");
 
   // ① 기본정보 속성 (이미지/이름/링크/색상/숨김 컬럼 제외 — 색상은 별도 탭)
@@ -810,7 +824,7 @@ function openDetail(r) {
     : `<div class="dpane-empty">비슷한 제품이 없습니다.</div>`;
 
   const chips = [
-    `<span class="dchip ${disc ? "disc" : "live"}">${disc ? "단종" : "출시됨"}</span>`,
+    `<span class="dchip ${st.cls}">${st.label}</span>`,
     model ? `<span class="dchip">${esc(model)}</span>` : "",
     size ? `<span class="dchip">${esc(size)}</span>` : "",
   ].filter(Boolean).join("");
