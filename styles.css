@@ -182,16 +182,15 @@ button.btn.ghost:hover { background: #f0f0f3; }
 .cat-nav { display: flex; flex-direction: column; gap: 2px; }
 .cat-item {
   display: flex; align-items: center; gap: 10px; width: 100%;
-  padding: 9px 12px; border: none; background: transparent; border-radius: 9px;
-  cursor: pointer; color: var(--text); font-size: 13.5px; font-weight: 600; text-align: left;
-  transition: background .12s, box-shadow .12s;
+  padding: 13px 14px; border: none; background: transparent; border-radius: 11px;
+  cursor: pointer; color: var(--text); font-size: 15px; font-weight: 500; text-align: left;
+  transition: background .12s;
 }
-.cat-item:hover { background: var(--panel-2); }
-.cat-item.active { background: var(--brand-soft); color: var(--brand); box-shadow: inset 3px 0 0 var(--brand); }
+.cat-item:hover { background: rgba(128,128,128,.09); }
+.cat-item.active { background: rgba(128,128,128,.16); font-weight: 700; }
 .cat-item .ic { width: 20px; text-align: center; flex: none; }
 .cat-item .lbl { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.cat-item .cnt { font-size: 12px; font-weight: 700; color: var(--muted); flex: none; }
-.cat-item.active .cnt { color: var(--brand); }
+.cat-item .cnt { font-size: 13px; font-weight: 500; color: var(--muted); flex: none; }
 
 .filter-head {
   font-size: 12px; font-weight: 700; color: var(--muted); padding: 14px 4px 0;
