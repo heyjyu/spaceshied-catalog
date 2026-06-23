@@ -1,0 +1,12 @@
+# 변환 중간 산출물 (배포 불필요, build.sh로 재생성)
+sheet.xlsx
+sheet.html
+xlsx_x/
+raw/
+raw_test.csv
+tabs.json
+
+# 배포에 필요한 것은 커밋: index.html, app.js, styles.css, config.js,
+# catalog.csv, sample-data.csv, images/, *.py, build.sh, README.md
+
+.DS_Store
