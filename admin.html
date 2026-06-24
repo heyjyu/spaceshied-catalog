@@ -40,6 +40,18 @@
     .full-btn { width: 100%; padding: 12px; font-weight: 700; justify-content: center; text-align: center; }
     .login-box a { color: var(--brand); }
     .login-box a:visited { color: var(--brand); }
+    /* 로그인 → 카탈로그로 돌아가기: 보조 버튼 */
+    .back-link { margin-top: 10px; background: var(--panel-2); border: 1px solid var(--border); color: var(--text); font-weight: 600; }
+    .back-link:hover { background: var(--border-soft); }
+    /* 로그아웃: 또렷한 버튼(빨강 테두리 강조) */
+    .logout-btn { color: var(--danger); border-color: var(--border); }
+    .logout-btn:hover { background: #fdecec; border-color: var(--danger); }
+    [data-theme="dark"] .logout-btn:hover { background: #3a1715; }
+    /* 카테고리 삭제 버튼 */
+    .cat-del { flex: none; width: 30px; height: 30px; border: 1px solid var(--border); background: var(--panel);
+      border-radius: 8px; color: var(--danger); cursor: pointer; font-size: 19px; line-height: 1; padding: 0; }
+    .cat-del:hover { background: #fdecec; border-color: var(--danger); }
+    [data-theme="dark"] .cat-del:hover { background: #3a1715; }
     .err { color: var(--danger); font-size: 13px; margin-top: 8px; min-height: 18px; }
     /* 목록 */
     .prod-row { display: grid; grid-template-columns: 56px 1fr auto; gap: 12px; align-items: center;
@@ -131,7 +143,7 @@
         <div class="field"><label>비밀번호</label><input id="pw" type="password" autocomplete="current-password"></div>
         <button class="btn brand full-btn" id="loginBtn">로그인</button>
         <div class="err" id="loginErr"></div>
-        <p style="margin-top:14px"><a href="index.html">← 카탈로그로</a></p>
+        <a class="btn full-btn back-link" href="index.html"><span aria-hidden="true">←</span> 카탈로그로 돌아가기</a>
       </div>`;
     const go = async () => {
       const email = document.getElementById("email").value.trim();
@@ -157,8 +169,8 @@
         <button class="btn icon-only" id="adminTheme" title="다크/라이트 전환" aria-label="테마 전환">🌙</button>
         <button class="btn" id="catBtn" title="사이드바 카테고리 순서/이름 관리">📂 카테고리</button>
         <button class="btn brand" id="addBtn">＋ 새 상품</button>
-        <a class="btn" href="index.html">카탈로그</a>
-        <button class="btn ghost" id="logoutBtn">로그아웃</button>
+        <a class="btn" href="index.html"><span aria-hidden="true">🛍️</span> 카탈로그</a>
+        <button class="btn logout-btn" id="logoutBtn" title="로그아웃"><span aria-hidden="true">↩</span> 로그아웃</button>
       </div>
       <div id="list">불러오는 중…</div>`;
     document.getElementById("logoutBtn").addEventListener("click", async () => { await sb.auth.signOut(); showLogin(); });
@@ -358,19 +370,62 @@
     return String(r.model || "").trim() || "기타";
   }
   let dragEl = null;
+  let catLoadedKeys = [];   // 불러온 시점의 DB 카테고리 키(삭제 diff용)
+  function catRowHtml(c) {
+    return `<div class="cat-row" draggable="true" data-key="${esc(c.key)}">
+      <span class="drag" title="드래그로 이동">⋮⋮</span>
+      <input class="cat-label" value="${esc(c.label)}" placeholder="${esc(c.key)}">
+      <span class="cat-key">${esc(c.key)} · ${c.count ? c.count + "개" : "신규"}</span>
+      <label class="cat-vis-l"><input type="checkbox" class="cat-vis" ${c.visible ? "checked" : ""}> 노출</label>
+      <span class="cat-move">
+        <button class="catmv" data-dir="up" title="위로" aria-label="위로">▲</button>
+        <button class="catmv" data-dir="down" title="아래로" aria-label="아래로">▼</button>
+      </span>
+      <button class="cat-del" title="이 카테고리 삭제" aria-label="삭제">×</button>
+    </div>`;
+  }
+  function bindCatRow(row) {
+    const cont = document.getElementById("catList");
+    row.addEventListener("dragstart", () => { dragEl = row; setTimeout(() => row.classList.add("dragging"), 0); });
+    row.addEventListener("dragend", () => { row.classList.remove("dragging"); dragEl = null; });
+    row.querySelectorAll(".catmv").forEach((b) => b.addEventListener("click", () => {
+      if (b.dataset.dir === "up" && row.previousElementSibling) cont.insertBefore(row, row.previousElementSibling);
+      else if (b.dataset.dir === "down" && row.nextElementSibling) cont.insertBefore(row.nextElementSibling, row);
+      row.querySelector(".cat-label").focus({ preventScroll: true });
+      row.scrollIntoView({ block: "nearest" });
+    }));
+    row.querySelector(".cat-del").addEventListener("click", () => {
+      const nm = row.querySelector(".cat-label").value.trim() || row.dataset.key;
+      if (confirm(`'${nm}' 카테고리를 삭제할까요?\n(상품이 있는 카테고리는 '노출' 체크 해제로 숨기는 게 더 안전합니다.)`)) row.remove();
+    });
+  }
+  function addCategory() {
+    const name = (prompt("새 카테고리 이름을 입력하세요 (예: 가민, 신제품)") || "").trim();
+    if (!name) return;
+    const cont = document.getElementById("catList");
+    if ([...cont.querySelectorAll(".cat-row")].some((r) => r.dataset.key === name)) { alert("이미 있는 카테고리입니다."); return; }
+    cont.insertAdjacentHTML("beforeend", catRowHtml({ key: name, label: name, visible: true, count: 0 }));
+    const row = cont.lastElementChild;
+    bindCatRow(row);
+    row.querySelector(".cat-label").focus();
+    row.scrollIntoView({ block: "nearest" });
+  }
   async function openCategories() {
     const counts = {};
     rows.forEach((r) => { const g = adminGroupOf(r); counts[g] = (counts[g] || 0) + 1; });
     let saved = [];
     try { const res = await sb.from("categories").select("*"); saved = res.data || []; } catch (e) {}
+    catLoadedKeys = saved.map((c) => c.key);
     const savedMap = {}; saved.forEach((c) => (savedMap[c.key] = c));
     const CFG_ORDER = (window.CONFIG && CONFIG.CATEGORY_ORDER) || [];
     const CFG_LABELS = (window.CONFIG && CONFIG.CATEGORY_LABELS) || {};
-    const list = Object.keys(counts).map((g) => {
+    // 상품에서 파생된 그룹 + 이미 저장(추가)했던 카테고리의 합집합
+    const allKeys = [...new Set([...Object.keys(counts), ...catLoadedKeys])];
+    const list = allKeys.map((g) => {
       const s = savedMap[g];
       let sort = s ? s.sort : CFG_ORDER.indexOf(g);
       if (sort == null || sort < 0) sort = 9999;
-      return { key: g, label: s ? (s.label || "") : (CFG_LABELS[g] || g), visible: s ? s.visible !== false : true, sort, count: counts[g] };
+      return { key: g, label: s ? (s.label || "") : (CFG_LABELS[g] || g), visible: s ? s.visible !== false : true, sort, count: counts[g] || 0 };
     }).sort((a, b) => a.sort - b.sort || b.count - a.count);
 
     app.innerHTML = `
@@ -380,25 +435,14 @@
         <button class="btn" id="catBack">← 상품 목록</button>
         <button class="btn brand" id="catSave">저장</button>
       </div>
-      <div class="notice" style="margin-bottom:14px">⋮⋮ 를 잡고 <b>드래그로 순서</b> 변경 · 이름 수정 · <b>노출</b> 체크 해제로 숨김. 저장하면 카탈로그 사이드바에 반영됩니다.</div>
-      <div id="catList">${list.map((c) => `
-        <div class="cat-row" draggable="true" data-key="${esc(c.key)}">
-          <span class="drag" title="드래그로 이동">⋮⋮</span>
-          <input class="cat-label" value="${esc(c.label)}" placeholder="${esc(c.key)}">
-          <span class="cat-key">${esc(c.key)} · ${c.count}개</span>
-          <label class="cat-vis-l"><input type="checkbox" class="cat-vis" ${c.visible ? "checked" : ""}> 노출</label>
-          <span class="cat-move">
-            <button class="catmv" data-dir="up" title="위로" aria-label="위로">▲</button>
-            <button class="catmv" data-dir="down" title="아래로" aria-label="아래로">▼</button>
-          </span>
-        </div>`).join("")}</div>`;
+      <div class="notice" style="margin-bottom:14px">⋮⋮ 드래그로 <b>순서</b> · 이름 <b>수정</b> · <b>노출</b> 체크 · <b>×</b>로 <b>삭제</b> · 맨 아래 <b>＋ 카테고리 추가</b>. 저장하면 카탈로그 사이드바에 반영됩니다.</div>
+      <div id="catList">${list.map(catRowHtml).join("")}</div>
+      <button class="btn" id="catAdd" style="margin-top:14px">＋ 카테고리 추가</button>`;
     document.getElementById("catBack").addEventListener("click", showAdmin);
     document.getElementById("catSave").addEventListener("click", saveCategories);
+    document.getElementById("catAdd").addEventListener("click", addCategory);
     const cont = document.getElementById("catList");
-    cont.querySelectorAll(".cat-row").forEach((row) => {
-      row.addEventListener("dragstart", () => { dragEl = row; setTimeout(() => row.classList.add("dragging"), 0); });
-      row.addEventListener("dragend", () => { row.classList.remove("dragging"); dragEl = null; });
-    });
+    cont.querySelectorAll(".cat-row").forEach(bindCatRow);
     cont.addEventListener("dragover", (e) => {
       e.preventDefault();
       if (!dragEl) return;
@@ -407,14 +451,6 @@
       for (const ch of els) { const b = ch.getBoundingClientRect(); const off = e.clientY - b.top - b.height / 2; if (off < 0 && off > best.off) best = { off, el: ch }; }
       if (best.el == null) cont.appendChild(dragEl); else cont.insertBefore(dragEl, best.el);
     });
-    // ▲▼ 위아래 이동 버튼
-    cont.querySelectorAll(".catmv").forEach((b) => b.addEventListener("click", () => {
-      const row = b.closest(".cat-row");
-      if (b.dataset.dir === "up" && row.previousElementSibling) cont.insertBefore(row, row.previousElementSibling);
-      else if (b.dataset.dir === "down" && row.nextElementSibling) cont.insertBefore(row.nextElementSibling, row);
-      row.querySelector(".cat-label").focus({ preventScroll: true });
-      row.scrollIntoView({ block: "nearest" });
-    }));
   }
   async function saveCategories() {
     const els = [...document.querySelectorAll("#catList .cat-row")];
@@ -424,8 +460,17 @@
       sort: i,
       visible: el.querySelector(".cat-vis").checked,
     }));
-    const { error } = await sb.from("categories").upsert(payload, { onConflict: "key" });
-    if (error) { alert("저장 실패: " + error.message + "\n\n(categories 테이블이 없으면 supabase_categories.sql 먼저 실행하세요)"); return; }
+    // 삭제된 카테고리(불러온 DB키 중 현재 목록에 없는 것) → DB에서 제거
+    const currentKeys = payload.map((p) => p.key);
+    const removed = catLoadedKeys.filter((k) => !currentKeys.includes(k));
+    if (removed.length) {
+      const { error: delErr } = await sb.from("categories").delete().in("key", removed);
+      if (delErr) { alert("삭제 실패: " + delErr.message); return; }
+    }
+    if (payload.length) {
+      const { error } = await sb.from("categories").upsert(payload, { onConflict: "key" });
+      if (error) { alert("저장 실패: " + error.message + "\n\n(categories 테이블이 없으면 supabase_categories.sql 먼저 실행하세요)"); return; }
+    }
     try { signalCatalog(); } catch (e) {}
     alert("저장 완료! 카탈로그를 새로고침하면 사이드바에 반영됩니다.");
     showAdmin();

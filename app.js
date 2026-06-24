@@ -677,8 +677,17 @@ function renderCatNav() {
   const order = CONFIG.CATEGORY_ORDER || [];
   let groups;
   if (CONFIG.CATEGORY_STRICT && order.length) {
-    // 지정한 카테고리"만", 지정 순서대로 (0개여도 표시 — 가민/커넥터 자리 유지)
-    groups = order.filter((g) => catMeta(g).visible);
+    // config 지정 카테고리 + admin이 추가한 DB 전용 카테고리(categoryCfg). 노출된 것만.
+    // 순서: 저장된 DB sort 우선, 없으면 config 순서. → admin 추가/순서/노출이 반영됨.
+    const cfgIdx = (g) => { const i = order.indexOf(g); return i < 0 ? 9999 : i; };
+    groups = [...new Set([...order, ...Object.keys(categoryCfg)])]
+      .filter((g) => catMeta(g).visible)
+      .sort((a, b) => {
+        const sa = catMeta(a).sort, sb = catMeta(b).sort;
+        const va = (sa != null) ? sa : cfgIdx(a);
+        const vb = (sb != null) ? sb : cfgIdx(b);
+        return va - vb || cfgIdx(a) - cfgIdx(b);
+      });
   } else {
     // DB categories(admin 관리) > config CATEGORY_ORDER/LABELS > 개수 많은 순
     groups = Object.keys(counts)
