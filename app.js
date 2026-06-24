@@ -38,10 +38,17 @@ const $ = (id) => document.getElementById(id);
 
 // ---- 즐겨찾기 (localStorage) ---------------------------------------
 let favs = (() => {
-  try { return new Set(JSON.parse(localStorage.getItem("catalog_favs") || "[]")); }
-  catch (e) { return new Set(); }
+  try {
+    let s = new Set(JSON.parse(localStorage.getItem("catalog_favs") || "[]"));
+    // 즐겨찾기 키를 고유 id 기반("id:N")으로 전환. Supabase면 옛 'name||model' 키
+    // (이름·기종 같은 다른 제품이 같이 찜되던 버그)를 1회 정리.
+    if (CONFIG.SUPABASE && CONFIG.SUPABASE.URL) s = new Set([...s].filter((k) => k.startsWith("id:")));
+    return s;
+  } catch (e) { return new Set(); }
 })();
+// 고유 식별: DB id(__id) 우선. 없으면(CSV/DEMO) 제품명+기종 폴백.
 function favKey(r) {
+  if (r.__id != null) return "id:" + r.__id;
   const m = facetCols[0] ? (r[facetCols[0].key] || "") : "";
   return (rowTitle(r) || "") + "||" + m;
 }
@@ -59,8 +66,9 @@ function toggleFav(r) {
 }
 function updateFavUI() {
   const c = $("favCount"); if (c) c.textContent = favs.size;
-  const btn = $("btnFav");
-  if (btn) btn.classList.toggle("active", filterState.favOnly);
+  ["btnFav", "btnFavTop"].forEach((id) => {
+    const btn = $(id); if (btn) btn.classList.toggle("active", filterState.favOnly);
+  });
 }
 
 // ---- 유틸 -----------------------------------------------------------
@@ -159,7 +167,7 @@ function sheetUrl() {
 
 // 헤더·행을 받아 화면 구성 (CSV/시트/Supabase 공통 진입점)
 function ingest(headers, rows) {
-  rows = rows.filter((r) => Object.values(r).some((v) => String(v).trim() !== ""));
+  rows = rows.filter((r) => Object.keys(r).some((k) => k !== "__id" && String(r[k]).trim() !== ""));
   if (!rows.length) {
     setStatus("데이터가 비어 있습니다. 연결 설정/내용을 확인하세요.", true);
     return;
@@ -244,6 +252,7 @@ function loadProductsFromSupabase() {
       const rows = (data || []).map((rec) => {
         const o = {};
         for (const [col, head] of Object.entries(map)) o[head] = rec[col] != null ? String(rec[col]) : "";
+        if (rec.id != null) o.__id = String(rec.id);  // 즐겨찾기 고유키용(헤더 목록 밖이라 컬럼·검색엔 노출 안 됨)
         return o;
       });
       ingest(headers, rows);
@@ -268,8 +277,9 @@ function softRefresh() {
       let rows = (data || []).map((rec) => {
         const o = {};
         for (const [col, head] of Object.entries(map)) o[head] = rec[col] != null ? String(rec[col]) : "";
+        if (rec.id != null) o.__id = String(rec.id);  // 즐겨찾기 고유키용
         return o;
-      }).filter((r) => Object.values(r).some((v) => String(v).trim() !== ""));
+      }).filter((r) => Object.keys(r).some((k) => k !== "__id" && String(r[k]).trim() !== ""));
       if (colKeys.image) {
         rows = rows.map((r, i) => [r, i]).sort((a, b) => {
           const ai = String(a[0][colKeys.image] || "").trim() ? 0 : 1;
@@ -466,7 +476,8 @@ function matchRow(data) {
   if (filterState.favOnly && !isFav(data)) return false;
   if (filterState.search) {
     const term = filterState.search.toLowerCase();
-    if (!Object.values(data).some((v) => String(v).toLowerCase().includes(term)))
+    // 내부 키(__id, Tabulator _fav 등)는 검색 대상에서 제외
+    if (!Object.entries(data).some(([k, v]) => k[0] !== "_" && String(v).toLowerCase().includes(term)))
       return false;
   }
   for (const f of facetCols) {
@@ -1036,12 +1047,15 @@ function init() {
   $("btnTable").addEventListener("click", () => setView("table"));
   $("btnGallery").addEventListener("click", () => setView("gallery"));
 
-  // 즐겨찾기만 보기 토글
-  const favBtn = $("btnFav");
-  if (favBtn) favBtn.addEventListener("click", () => {
+  // 즐겨찾기만 보기 토글 (사이드바 + 모바일 토바 버튼 둘 다)
+  const toggleFavOnly = () => {
     filterState.favOnly = !filterState.favOnly;
     updateFavUI();
     applyFilters();
+    closeSidebar();
+  };
+  ["btnFav", "btnFavTop"].forEach((id) => {
+    const b = $(id); if (b) b.addEventListener("click", toggleFavOnly);
   });
 
   // 모바일: 사이드바(카테고리+필터) 드로어 열기/닫기

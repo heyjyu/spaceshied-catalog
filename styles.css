@@ -125,6 +125,9 @@ button.btn.ghost:hover { background: #f0f0f3; }
 .btn.brand { background: var(--brand); color: #fff; border-color: var(--brand); font-weight: 600; }
 .btn.brand:hover { background: var(--brand-press); }
 .btn svg { width: 16px; height: 16px; flex: none; }
+/* 모바일 전용(사이드바가 드로어로 숨는 ≤860px에서만 노출). 데스크톱은 사이드바에 즐겨찾기 있음 */
+.mobile-only { display: none; }
+#btnFavTop.active { color: #fff; }
 
 /* 뷰 전환: 세그먼트 컨트롤 (애플 스타일) */
 .view-toggle {
@@ -429,7 +432,7 @@ main { padding: 18px 24px 48px; max-width: 1400px; margin: 0 auto; }
 
   /* 보조 버튼(새로고침·확장맵·파이프라인·포장검수·테마)은 라벨 숨기고 작은 정사각 아이콘 */
   #btnReload .btn-label, #btnMap .btn-label, #btnPipeline .btn-label, #btnVerify .btn-label { display: none; }
-  #btnReload, #btnMap, #btnPipeline, #btnVerify, #btnTheme {
+  #btnReload, #btnMap, #btnPipeline, #btnVerify, #btnFavTop, #btnTheme {
     flex: none; width: 42px; height: 42px; padding: 0; justify-content: center; font-size: 18px; }
   /* 관리자: 라벨 노출 + 한 줄 꽉 채운 파란 버튼으로 강조 (가장 중요) */
   #btnAdd { order: 9; flex: 1 1 100%; justify-content: center; height: 48px;
@@ -469,6 +472,7 @@ main { padding: 18px 24px 48px; max-width: 1400px; margin: 0 auto; }
 /* 사이드바 → 태블릿/모바일 드로어 (≤860px) */
 @media (max-width: 860px) {
   #btnFilters { display: inline-flex; }
+  .mobile-only { display: inline-flex; }   /* 즐겨찾기 버튼을 필터 밖(토바)으로 */
   .sidebar {
     position: fixed; top: 0; left: 0; bottom: 0; height: 100%;
     width: 286px; max-width: 86vw; z-index: 46; max-height: none;
