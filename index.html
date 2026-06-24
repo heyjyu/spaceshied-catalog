@@ -4,13 +4,13 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>워치 스트랩 카탈로그</title>
-  <!-- 테마: 저장값 우선, 없으면 라이트 기본 (깜빡임 방지 위해 head에서 먼저 설정) -->
-  <script>document.documentElement.dataset.theme = localStorage.getItem("theme") || "light";</script>
+  <!-- 테마: 모바일(≤860px)은 라이트 고정, 데스크톱만 저장값 사용 (깜빡임 방지 위해 head에서 먼저 설정) -->
+  <script>document.documentElement.dataset.theme = window.matchMedia("(max-width: 860px)").matches ? "light" : (localStorage.getItem("theme") || "light");</script>
   <!-- 외부 라이브러리 (인터넷 필요). styles.css 는 Tabulator CSS 뒤에 둬야 표 커스텀이 적용됨 -->
   <link href="https://unpkg.com/tabulator-tables@5.6.1/dist/css/tabulator.min.css" rel="stylesheet" />
   <script src="https://unpkg.com/tabulator-tables@5.6.1/dist/js/tabulator.min.js"></script>
   <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
-  <link rel="stylesheet" href="styles.css?v=13" />
+  <link rel="stylesheet" href="styles.css?v=14" />
 </head>
 <body>
   <header class="topbar">
@@ -94,7 +94,7 @@
   <div id="overlay" class="hidden"></div>
   <aside id="detail" class="hidden" aria-label="상품 상세"></aside>
 
-  <script src="config.js?v=13"></script>
-  <script src="app.js?v=13"></script>
+  <script src="config.js?v=14"></script>
+  <script src="app.js?v=14"></script>
 </body>
 </html>
