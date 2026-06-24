@@ -42,6 +42,10 @@ body {
 
 ::selection { background: var(--brand-soft); }
 
+/* 스타일 없는 일반 링크 색(테마 적응) — 기본 파랑/방문 보라가 어두운 배경서 안 보이던 것 일괄 방지.
+   클래스 붙은 링크(.btn, .store-btn 등)는 자기 색 유지(:not([class])). */
+a:not([class]), a:not([class]):visited { color: var(--brand); }
+
 /* ---------- 상단바 (프로스티드 글래스) ---------- */
 header.topbar {
   background: rgba(255,255,255,.72);
@@ -126,7 +130,7 @@ button.btn.ghost:hover { background: #f0f0f3; }
   margin-left: auto;
   flex-wrap: wrap;
 }
-.btn { display: inline-flex; align-items: center; gap: 5px; white-space: nowrap; text-decoration: none; line-height: 1.2; }
+.btn { display: inline-flex; align-items: center; justify-content: center; gap: 5px; white-space: nowrap; text-decoration: none; line-height: 1.2; }
 .btn.brand { background: var(--brand); color: #fff; border-color: var(--brand); font-weight: 600; }
 .btn.brand:hover { background: var(--brand-press); }
 .btn svg { width: 16px; height: 16px; flex: none; }

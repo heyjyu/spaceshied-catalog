@@ -5,7 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>관리자 — 상품 관리</title>
   <script>document.documentElement.dataset.theme = localStorage.getItem("theme") || "light";</script>
-  <link rel="stylesheet" href="styles.css?v=6" />
+  <link rel="stylesheet" href="styles.css?v=15" />
   <style>
     .admin-wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
     .admin-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
@@ -36,7 +36,9 @@
       transition: border-color .12s, box-shadow .12s; }
     .field input::placeholder { color: var(--muted); }
     .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft); }
-    .full-btn { width: 100%; padding: 12px; font-weight: 700; }
+    .full-btn { width: 100%; padding: 12px; font-weight: 700; justify-content: center; text-align: center; }
+    .login-box a { color: var(--brand); }
+    .login-box a:visited { color: var(--brand); }
     .err { color: var(--danger); font-size: 13px; margin-top: 8px; min-height: 18px; }
     /* 목록 */
     .prod-row { display: grid; grid-template-columns: 56px 1fr auto; gap: 12px; align-items: center;
