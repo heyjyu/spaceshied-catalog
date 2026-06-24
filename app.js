@@ -66,6 +66,12 @@ function toggleFav(r) {
 }
 function updateFavUI() {
   const c = $("favCount"); if (c) c.textContent = favs.size;
+  // 통계 옆 '★ 즐겨찾기 N' 버튼: 카운트+활성 상태 실시간 갱신(카드 별 눌러도 즉시 반영)
+  const sf = $("statFav");
+  if (sf) {
+    const n = sf.querySelector(".sf-n"); if (n) n.textContent = favs.size;
+    sf.classList.toggle("active", filterState.favOnly);
+  }
   ["btnFav", "btnFavTop"].forEach((id) => {
     const btn = $(id); if (btn) btn.classList.toggle("active", filterState.favOnly);
   });
