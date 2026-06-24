@@ -454,8 +454,9 @@ main { padding: 18px 24px 48px; max-width: 1400px; margin: 0 auto; }
   /* 상단 액션을 한 줄에 균등 분배(아이콘만). 관리자만 아래 풀폭 CTA로 분리 */
   .topbar-actions > .btn:not(#btnAdd),
   .topbar-actions > .view-toggle { flex: 1 1 0; min-width: 0; height: 46px; padding: 0; justify-content: center; }
-  /* 보기전환: 폭을 넉넉히 + 칸 사이 간격 키워 두 버튼이 또렷이 분리되게 */
-  .view-toggle { flex: 2.4 1 0; gap: 5px; padding: 3px; }
+  /* 보기전환을 가장 크게(자주 쓰는 갤러리/표) — 나머지 아이콘은 상대적으로 작게.
+     specificity를 위 규칙(.topbar-actions > .view-toggle)과 동일하게 맞춰야 flex 4가 적용됨 */
+  .topbar-actions > .view-toggle { flex: 4 1 0; gap: 5px; padding: 3px; }
   .view-toggle .btn { flex: 1; height: auto; min-width: 0; justify-content: center; }
   /* 라벨 숨기고 아이콘만(필터 포함) */
   #btnFilters .btn-label, #btnMap .btn-label, #btnPipeline .btn-label, #btnVerify .btn-label { display: none; }
