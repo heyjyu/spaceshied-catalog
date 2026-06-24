@@ -106,7 +106,8 @@ header.topbar {
 }
 
 /* ---------- 버튼 ---------- */
-select.filter, button.btn, .btn {
+/* button 요소 한정자를 빼서 specificity를 낮춤 → .someclass 로 색/배경 오버라이드가 항상 먹게(hover 글씨 묻힘 방지) */
+select.filter, .btn {
   padding: 9px 14px;
   border: 1px solid var(--border);
   border-radius: var(--radius-sm);
@@ -117,11 +118,11 @@ select.filter, button.btn, .btn {
   color: var(--text);
   transition: background .15s, border-color .15s, transform .08s, box-shadow .15s;
 }
-button.btn:hover, .btn:hover { background: #f3f3f5; }
-button.btn:active, .btn:active { transform: scale(.97); }
-button.btn.active { background: var(--brand); color: #fff; border-color: var(--brand); }
-button.btn.ghost { color: var(--muted); border-color: transparent; background: transparent; }
-button.btn.ghost:hover { background: #f0f0f3; }
+.btn:hover { background: #f3f3f5; }
+.btn:active { transform: scale(.97); }
+.btn.active { background: var(--brand); color: #fff; border-color: var(--brand); }
+.btn.ghost { color: var(--muted); border-color: transparent; background: transparent; }
+.btn.ghost:hover { background: #f0f0f3; }
 
 .topbar-actions {
   display: flex;
@@ -537,9 +538,7 @@ main { padding: 18px 24px 48px; max-width: 1400px; margin: 0 auto; }
 [data-theme="dark"] .view-toggle .btn.active { background: #48484a; }
 /* 버튼 hover: 라이트값(#f3f3f5/#f0f0f3) 하드코딩이라 다크에서 흰배경+흰글씨로 안 보이던 것 수정.
    브랜드(관리자)·활성 버튼은 제외해 원래 색 유지. */
-[data-theme="dark"] button.btn:hover:not(.brand):not(.active),
-[data-theme="dark"] .btn:hover:not(.brand):not(.active) { background: #2c2c2e; }
-[data-theme="dark"] button.btn.ghost:hover,
+[data-theme="dark"] .btn:hover:not(.brand):not(.active):not(.cat-add-btn):not(.logout-btn) { background: #2c2c2e; }
 [data-theme="dark"] .btn.ghost:hover { background: #2c2c2e; }
 /* 표 헤더: 다크에서 항상 어둡게(+hover 시 밝은 글씨 유지) */
 [data-theme="dark"] .tabulator .tabulator-header,

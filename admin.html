@@ -10,7 +10,7 @@
   <title>관리자 — 상품 관리</title>
   <!-- 테마: 모바일(≤860px) 라이트 고정, 데스크톱은 저장값(모든 페이지 동일 로직) -->
   <script>document.documentElement.dataset.theme = window.matchMedia("(max-width: 860px)").matches ? "light" : (localStorage.getItem("theme") || "light");</script>
-  <link rel="stylesheet" href="styles.css?v=16" />
+  <link rel="stylesheet" href="styles.css?v=21" />
   <style>
     .admin-wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
     .admin-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
@@ -51,11 +51,11 @@
     .logout-btn { color: var(--danger); border-color: var(--border); }
     .logout-btn:hover { background: #fdecec; border-color: var(--danger); }
     [data-theme="dark"] .logout-btn:hover { background: #3a1715; }
-    /* 카테고리 추가 버튼: 리스트 위, 눈에 띄는 점선 강조 */
-    .cat-add-btn { width: 100%; justify-content: center; height: 50px; margin-bottom: 14px;
-      background: var(--brand-soft); border: 1.5px dashed var(--brand); color: var(--brand);
-      font-weight: 700; font-size: 15px; }
-    .cat-add-btn:hover { background: var(--brand); color: #fff; border-style: solid; }
+    /* 카테고리 추가 버튼: 리스트 위, 눈에 띄는 솔리드 파란 버튼(흰 글씨 항상 또렷) */
+    .cat-add-btn { width: 100%; justify-content: center; height: 52px; margin-bottom: 14px;
+      background: var(--brand); border: 1px solid var(--brand); color: #fff;
+      font-weight: 700; font-size: 15.5px; box-shadow: 0 2px 10px rgba(49,130,246,.28); }
+    .cat-add-btn:hover { background: var(--brand-press); border-color: var(--brand-press); color: #fff; }
     /* 카테고리 삭제 버튼 */
     .cat-del { flex: none; width: 30px; height: 30px; border: 1px solid var(--border); background: var(--panel);
       border-radius: 8px; color: var(--danger); cursor: pointer; font-size: 19px; line-height: 1; padding: 0; }
