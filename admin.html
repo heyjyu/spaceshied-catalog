@@ -222,6 +222,7 @@
     rec = rec || {};
     const inputs = Object.entries(FIELDS).map(([col, label]) => {
       if (col === "store_url") return "";   // 네이버스토어 입력칸 제거
+      if (col.startsWith("coupang_")) return "";   // 쿠팡 링크/재고는 SQL 자동 보강용 → 수기 입력칸 제외(저장 페이로드도 자동 제외)
       if (col === "image") {
         return `<div class="field" style="grid-column:1/-1">
           <label>${esc(label)}</label>
