@@ -554,6 +554,28 @@ function clearFilters() {
   applyFilters();
 }
 
+// 제목 클릭 = 홈: 모든 필터/검색/카테고리/정렬/즐겨찾기 초기화 + 맨 위로 (새로고침 없이)
+function goHome() {
+  filterState.search = "";
+  filterState.stock = "";
+  filterState.category = "";
+  filterState.lifecycle = "";
+  filterState.sort = "";
+  filterState.favOnly = false;
+  for (const k of Object.keys(filterState.facets)) filterState.facets[k] = "";
+  $("search").value = "";
+  $("stockFilter").value = "";
+  const ss = $("sortSelect"); if (ss) ss.value = "";
+  document.querySelectorAll("select.facet-select").forEach((s) => (s.value = ""));
+  closeDetail();
+  closeSidebar();
+  updateFavUI();
+  updateFilterCount();
+  renderCatNav();
+  applySort();   // 기본 정렬로 복원 + 필터 재적용 + 통계·갤러리 갱신
+  window.scrollTo({ top: 0, behavior: "smooth" });
+}
+
 // ---- 통계 ----------------------------------------------------------
 function renderStats() {
   const active = table ? table.getData("active") : allRows;
@@ -1016,6 +1038,15 @@ function closeDetail() {
 function init() {
   $("title").textContent = CONFIG.TITLE || "상품 카탈로그";
   document.title = CONFIG.TITLE || "상품 카탈로그";
+  // 제목 클릭 → 홈(필터 초기화 + 맨 위로)
+  const titleEl = $("title");
+  if (titleEl) {
+    titleEl.addEventListener("click", goHome);
+    titleEl.setAttribute("role", "button");
+    titleEl.setAttribute("tabindex", "0");
+    titleEl.setAttribute("title", "홈으로 (필터 초기화)");
+    titleEl.addEventListener("keydown", (e) => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); goHome(); } });
+  }
 
   let t;
   const searchEl = $("search");

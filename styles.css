@@ -64,7 +64,12 @@ header.topbar {
   font-weight: 700;
   letter-spacing: -0.02em;
   white-space: nowrap;
+  cursor: pointer;             /* 클릭하면 홈(필터 초기화) */
+  transition: opacity .12s;
+  user-select: none;
 }
+.topbar h1:hover { opacity: .65; }
+.topbar h1:active { opacity: .9; }
 
 .search-wrap {
   flex: 1 1 280px;
