@@ -242,6 +242,17 @@ button.btn.ghost:hover { background: #f0f0f3; }
 .stat-card .value.brand { color: var(--brand); }
 .stat-card.clickable { cursor: pointer; transition: border-color .12s, box-shadow .12s, transform .08s; }
 .stat-card.clickable:hover { border-color: var(--brand); }
+/* 통계 오른쪽 즐겨찾기 토글 (데스크톱) */
+.stat-fav { margin-left: auto; align-self: stretch; display: inline-flex; align-items: center; gap: 8px;
+  padding: 0 18px; border: 1px solid var(--border); border-radius: var(--radius-sm); background: var(--panel);
+  box-shadow: var(--shadow-sm); cursor: pointer; font-size: 14px; font-weight: 600; color: var(--text); white-space: nowrap; }
+.stat-fav:hover { border-color: #f3c64a; }
+.stat-fav .sf-star { color: #f5b301; font-size: 18px; line-height: 1; }
+.stat-fav .sf-n { color: var(--muted); font-weight: 700; }
+.stat-fav.active { background: #fff4d6; border-color: #f3c64a; }
+.stat-fav.active .sf-n { color: #b8860b; }
+[data-theme="dark"] .stat-fav.active { background: #2e2614; border-color: #6b551f; }
+[data-theme="dark"] .stat-fav.active .sf-n { color: #e6b53d; }
 .stat-card.clickable:active { transform: scale(.98); }
 .stat-card.active { border-color: var(--brand); box-shadow: 0 0 0 2px var(--brand-soft); }
 
@@ -462,6 +473,7 @@ main { padding: 18px 24px 48px; max-width: 1400px; margin: 0 auto; }
 
   .stats { padding: 14px 14px 0; gap: 8px; overflow-x: auto; flex-wrap: nowrap; -webkit-overflow-scrolling: touch; }
   .stat-card { min-width: 100px; padding: 11px 15px; flex: none; }
+  .stat-fav { display: none; }   /* 모바일은 토바 ★ 사용 */
 
   main { padding: 14px; }
 
@@ -490,7 +502,7 @@ main { padding: 18px 24px 48px; max-width: 1400px; margin: 0 auto; }
 /* 사이드바 → 태블릿/모바일 드로어 (≤860px) */
 @media (max-width: 860px) {
   #btnFilters { display: inline-flex; }
-  #btnTheme { display: none; }              /* 모바일/태블릿은 라이트 고정 */
+  #btnTheme, #adminTheme { display: none; } /* 모바일/태블릿은 라이트 고정 */
   .mobile-only { display: inline-flex; }   /* 즐겨찾기 버튼을 필터 밖(토바)으로 */
   .sidebar {
     position: fixed; top: 0; left: 0; bottom: 0; height: 100%;

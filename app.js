@@ -596,7 +596,11 @@ function renderStats() {
     const on = click && filterState.lifecycle === c.life;
     return `<div class="stat-card${click ? " clickable" : ""}${on ? " active" : ""}"${click ? ` data-life="${esc(c.life)}"` : ""}>` +
       `<div class="label">${c.label}</div><div class="value ${c.vcls || ""}">${c.value}</div></div>`;
-  }).join("");
+  }).join("") +
+    // 통계 오른쪽: 즐겨찾기만 보기 토글 (데스크톱; 모바일은 토바 ★)
+    `<button class="stat-fav${filterState.favOnly ? " active" : ""}" id="statFav" title="즐겨찾기만 보기">
+       <span class="sf-star">★</span><span class="sf-txt">즐겨찾기</span><span class="sf-n">${favs.size}</span>
+     </button>`;
 
   $("stats").querySelectorAll(".stat-card.clickable").forEach((el) => {
     el.addEventListener("click", () => {
@@ -604,6 +608,12 @@ function renderStats() {
       filterState.lifecycle = v;          // 전체="" / 진행 / 단종
       applyFilters();
     });
+  });
+  const sf = $("statFav");
+  if (sf) sf.addEventListener("click", () => {
+    filterState.favOnly = !filterState.favOnly;
+    updateFavUI();
+    applyFilters();
   });
 }
 
@@ -683,6 +693,8 @@ function renderCatNav() {
   nav.querySelectorAll(".cat-item").forEach((el) => {
     el.addEventListener("click", () => {
       filterState.category = el.dataset.cat;
+      filterState.favOnly = false;   // 카테고리로 둘러보기 = 즐겨찾기 모드 해제
+      updateFavUI();
       nav.querySelectorAll(".cat-item").forEach((x) => x.classList.toggle("active", x === el));
       applyFilters();
       closeSidebar();
