@@ -427,13 +427,17 @@ main { padding: 18px 24px 48px; max-width: 1400px; margin: 0 auto; }
   .topbar h1 { font-size: 17px; flex: 1 1 auto; letter-spacing: -0.02em; }
   .search-wrap { flex: 1 1 100%; order: 3; min-width: 0; }
   .topbar-actions { width: 100%; order: 4; gap: 6px; }
-  .view-toggle { flex: 1 1 auto; }
-  .view-toggle .btn { flex: 1; justify-content: center; }
-
-  /* 보조 버튼(새로고침·확장맵·파이프라인·포장검수·테마)은 라벨 숨기고 작은 정사각 아이콘 */
-  #btnReload .btn-label, #btnMap .btn-label, #btnPipeline .btn-label, #btnVerify .btn-label { display: none; }
-  #btnReload, #btnMap, #btnPipeline, #btnVerify, #btnFavTop, #btnTheme {
-    flex: none; width: 42px; height: 42px; padding: 0; justify-content: center; font-size: 18px; }
+  /* 상단 액션을 한 줄에 균등 분배(아이콘만). 관리자만 아래 풀폭 CTA로 분리 */
+  .topbar-actions > .btn:not(#btnAdd),
+  .topbar-actions > .view-toggle { flex: 1 1 0; min-width: 0; height: 44px; padding: 0; justify-content: center; }
+  .view-toggle { flex: 1.7 1 0; gap: 2px; }
+  .view-toggle .btn { flex: 1; height: auto; min-width: 0; justify-content: center; }
+  /* 라벨 숨기고 아이콘만(필터 포함) */
+  #btnFilters .btn-label, #btnMap .btn-label, #btnPipeline .btn-label, #btnVerify .btn-label { display: none; }
+  #btnFilters, #btnMap, #btnPipeline, #btnVerify, #btnFavTop, #btnTheme { font-size: 18px; }
+  /* 필터 카운트 배지: 아이콘만 남으니 버튼 우상단 코너로 */
+  #btnFilters { position: relative; }
+  #btnFilters .filter-count { position: absolute; top: -5px; right: -5px; }
   /* 관리자: 라벨 노출 + 한 줄 꽉 채운 파란 버튼으로 강조 (가장 중요) */
   #btnAdd { order: 9; flex: 1 1 100%; justify-content: center; height: 48px;
     font-size: 16px; font-weight: 800; gap: 7px; border-radius: 14px; }
