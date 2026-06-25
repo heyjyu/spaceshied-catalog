@@ -681,7 +681,9 @@ function renderCatNav() {
     // 순서: 저장된 DB sort 우선, 없으면 config 순서. → admin 추가/순서/노출이 반영됨.
     const cfgIdx = (g) => { const i = order.indexOf(g); return i < 0 ? 9999 : i; };
     groups = [...new Set([...order, ...Object.keys(categoryCfg)])]
-      .filter((g) => catMeta(g).visible)
+      // 손님 뷰에선 0개 카테고리 숨김(클릭해도 빈 결과 → 데모에서 고장처럼 보임).
+      // 상품이 들어오면 자동 재등장. placeholder 자리잡기 의도는 admin 관리화면에서 유지.
+      .filter((g) => catMeta(g).visible && (counts[g] || 0) > 0)
       .sort((a, b) => {
         const sa = catMeta(a).sort, sb = catMeta(b).sort;
         const va = (sa != null) ? sa : cfgIdx(a);
