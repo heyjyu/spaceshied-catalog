@@ -10,7 +10,7 @@
   <title>관리자 — 상품 관리</title>
   <!-- 테마: 모바일(≤860px) 라이트 고정, 데스크톱은 저장값(모든 페이지 동일 로직) -->
   <script>document.documentElement.dataset.theme = window.matchMedia("(max-width: 860px)").matches ? "light" : (localStorage.getItem("theme") || "light");</script>
-  <link rel="stylesheet" href="styles.css?v=36" />
+  <link rel="stylesheet" href="styles.css?v=38" />
   <style>
     .admin-wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
     .admin-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
@@ -606,12 +606,15 @@
 
   // ====== 표 컬럼 관리 (카탈로그 리스트 보기 순서/이름/노출) ======
   let colLoadedKeys = [];
+  // 필수 컬럼(항상 노출, 숨김 불가): 제품명·이미지(사진)·규격
+  const MUST_COLS = new Set([FIELDS.name, FIELDS.image, FIELDS.size].filter(Boolean));
   function colRowHtml(c) {
+    const must = MUST_COLS.has(c.key);
     return `<div class="cat-row" draggable="true" data-key="${esc(c.key)}">
       <span class="drag" title="드래그로 이동">⋮⋮</span>
       <input class="cat-label" value="${esc(c.label)}" placeholder="${esc(c.key)}">
-      <span class="cat-key">${esc(c.key)}</span>
-      <label class="cat-vis-l"><input type="checkbox" class="cat-vis" ${c.visible ? "checked" : ""}> 노출</label>
+      <span class="cat-key">${esc(c.key)}${must ? ' · <b style="color:var(--brand)">필수</b>' : ""}</span>
+      <label class="cat-vis-l"><input type="checkbox" class="cat-vis" ${must || c.visible ? "checked" : ""}${must ? " disabled" : ""}> 노출</label>
       <span class="cat-move">
         <button class="catmv" data-dir="up" title="위로" aria-label="위로">▲</button>
         <button class="catmv" data-dir="down" title="아래로" aria-label="아래로">▼</button>

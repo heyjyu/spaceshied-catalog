@@ -409,11 +409,14 @@ function buildColumns(headers) {
   const colorKey = (facetCols.find((f) => f.derive === "color") || {}).key;
   const sizeKey = (facetCols.find((f) => f.derive === "mm") || {}).key;
   const hasCfg = columnCfg && Object.keys(columnCfg).length > 0;
+  // 필수 컬럼(항상 노출): 제품명·사진·규격 ("규격"은 COLUMN_MAP.size 헤더, sizeKey는 '베이스규격'을 잡을 수 있어 직접 지정)
+  const sizeHeader = ((CONFIG.SUPABASE && CONFIG.SUPABASE.COLUMN_MAP) || {}).size || "규격";
+  const must = new Set([colKeys.name, colKeys.image, sizeHeader].filter(Boolean));
   // 표시 순서/노출: column_config 가 있으면 그 설정 우선, 없으면 기존(매핑 순서 + HIDE_COLUMNS)
   let ordered;
   if (hasCfg) {
     ordered = headers
-      .filter((h) => { const c = columnCfg[h]; return c ? c.visible !== false : !hide.has(h); })
+      .filter((h) => { if (must.has(h)) return true; const c = columnCfg[h]; return c ? c.visible !== false : !hide.has(h); })
       .sort((a, b) => {
         const sa = columnCfg[a] ? (columnCfg[a].sort ?? 9999) : 9999;
         const sb = columnCfg[b] ? (columnCfg[b].sort ?? 9999) : 9999;
