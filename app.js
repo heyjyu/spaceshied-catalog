@@ -97,11 +97,16 @@ function formatYM(v) {
   return m[2] ? `${m[1]}. ${m[2].padStart(2, "0")}` : m[1];
 }
 
-// 호환(커넥터) 표시 라벨: 공용/범용 = "커넥터 연결형", 기종 전용 = "기종별 일체형"
+// 호환(커넥터) 표시 라벨: 공용/범용 = "커넥터 연결형", 기종 전용 = "기종별 일체형" (상세 단일값용)
 function connectorLabel(v) {
   const s = String(v ?? "").trim();
   if (!s) return "";
   return /공용|공통|범용|universal/i.test(s) ? "커넥터 연결형" : "기종별 일체형";
+}
+// 필터·표용: '공용(범용)'만 '커넥터 연결형'으로, 나머지 기종명은 그대로 유지(옵션 구분 보존)
+function connUniversalLabel(v) {
+  const s = String(v ?? "").trim();
+  return /공용|공통|범용|universal/i.test(s) ? "커넥터 연결형" : s;
 }
 
 function won(v) {
@@ -400,8 +405,9 @@ function buildFacetDropdowns(rows) {
     if (f.derive === "mm") vals.sort((a, b) => parseInt(a) - parseInt(b));
     else if (f.derive === "color") vals.sort((a, b) => colorOrder(a) - colorOrder(b));
     else vals.sort((a, b) => a.localeCompare(b, "ko"));
+    const optLabel = (f.label === "호환") ? connUniversalLabel : ((x) => x);
     sel.innerHTML = `<option value="">${esc(f.label)}</option>` +
-      vals.map((v) => `<option value="${esc(v)}">${esc(v)}</option>`).join("");
+      vals.map((v) => `<option value="${esc(v)}">${esc(optLabel(v))}</option>`).join("");
     sel.addEventListener("change", (e) => {
       filterState.facets[f.key] = e.target.value;
       applyFilters();
@@ -415,6 +421,7 @@ function buildColumns(headers) {
   const hide = new Set(CONFIG.HIDE_COLUMNS || []);
   const colorKey = (facetCols.find((f) => f.derive === "color") || {}).key;
   const sizeKey = (facetCols.find((f) => f.derive === "mm") || {}).key;
+  const connKey = (facetCols.find((f) => f.label === "호환") || {}).key;
   const hasCfg = columnCfg && Object.keys(columnCfg).length > 0;
   // 필수 컬럼(항상 노출): 제품명·사진·규격 ("규격"은 COLUMN_MAP.size 헤더, sizeKey는 '베이스규격'을 잡을 수 있어 직접 지정)
   const sizeHeader = ((CONFIG.SUPABASE && CONFIG.SUPABASE.COLUMN_MAP) || {}).size || "규격";
@@ -472,6 +479,8 @@ function buildColumns(headers) {
         const v = cell.getValue();
         return v ? `<a class="cell-link" href="${esc(v)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">열기 ↗</a>` : "";
       };
+    } else if (h === connKey) {
+      col.formatter = (cell) => esc(connUniversalLabel(cell.getValue()));
     } else if (h === "출시년월") {
       col.formatter = (cell) => esc(formatYM(cell.getValue()));
     } else if (h === colKeys.price) {
