@@ -10,7 +10,7 @@
   <title>관리자 — 상품 관리</title>
   <!-- 테마: 모바일(≤860px) 라이트 고정, 데스크톱은 저장값(모든 페이지 동일 로직) -->
   <script>document.documentElement.dataset.theme = window.matchMedia("(max-width: 860px)").matches ? "light" : (localStorage.getItem("theme") || "light");</script>
-  <link rel="stylesheet" href="styles.css?v=29" />
+  <link rel="stylesheet" href="styles.css?v=30" />
   <style>
     .admin-wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
     .admin-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
@@ -63,7 +63,7 @@
     [data-theme="dark"] .cat-del:hover { background: #3a1715; }
     .err { color: var(--danger); font-size: 13px; margin-top: 8px; min-height: 18px; }
     /* 목록 */
-    .prod-row { display: grid; grid-template-columns: 56px 1fr auto; gap: 12px; align-items: center;
+    .prod-row { display: grid; grid-template-columns: 26px 56px 1fr auto; gap: 12px; align-items: center;
                 background: var(--panel); border: 1px solid var(--border-soft); border-radius: var(--radius-sm);
                 padding: 10px 12px; margin-bottom: 8px; }
     .prod-row img, .prod-row .noimg { width: 52px; height: 52px; border-radius: 10px; object-fit: cover;
@@ -71,6 +71,18 @@
     .prod-row .pname { font-weight: 600; }
     .prod-row .psub { font-size: 12px; color: var(--muted); margin-top: 2px; }
     .prod-row .ops { display: flex; gap: 6px; }
+    .prod-row .rowchk { width: 18px; height: 18px; cursor: pointer; accent-color: var(--brand); }
+    .prod-row.sel { border-color: var(--brand); background: var(--brand-soft); }
+    /* 일괄 작업 바 */
+    .bulk-bar { display: flex; align-items: center; gap: 12px; margin-bottom: 10px;
+      padding: 8px 12px; background: var(--panel-2); border: 1px solid var(--border-soft); border-radius: var(--radius-sm); }
+    .bulk-bar label { display: flex; align-items: center; gap: 7px; font-size: 13.5px; color: var(--text); cursor: pointer; user-select: none; }
+    .bulk-bar input[type=checkbox] { width: 18px; height: 18px; cursor: pointer; accent-color: var(--brand); }
+    .bulk-bar .bulk-count { color: var(--muted); font-size: 13px; margin-left: auto; }
+    .bulk-bar .bulk-del { color: var(--danger); border-color: var(--border); }
+    .bulk-bar .bulk-del:disabled { opacity: .4; cursor: default; }
+    .bulk-bar .bulk-del:not(:disabled):hover { background: #fdecec; border-color: var(--danger); }
+    [data-theme="dark"] .bulk-bar .bulk-del:not(:disabled):hover { background: #3a1715; }
     /* 카테고리 관리 */
     .cat-row { display: flex; align-items: center; gap: 12px; background: var(--panel);
       border: 1px solid var(--border-soft); border-radius: 12px; padding: 10px 14px; margin-bottom: 8px; }
@@ -205,14 +217,26 @@
     renderList("");
   }
 
+  const selected = new Set();   // 선택된 상품 id
+
   function renderList(term) {
     term = (term || "").toLowerCase();
     const list = rows.filter((r) => !term || String(r.name || "").toLowerCase().includes(term));
     const el = document.getElementById("list");
     if (!list.length) { el.innerHTML = `<div class="notice">상품이 없습니다. ‘+ 새 상품’으로 추가하세요.</div>`; return; }
-    el.innerHTML = `<div style="color:var(--muted);font-size:13px;margin-bottom:8px">${list.length}개</div>` +
+    // 화면에 없는(검색 필터된) 선택은 정리
+    const visibleIds = new Set(list.map((r) => String(r.id)));
+    [...selected].forEach((id) => { if (!visibleIds.has(id)) selected.delete(id); });
+    const allChecked = list.length && list.every((r) => selected.has(String(r.id)));
+    el.innerHTML = `
+      <div class="bulk-bar">
+        <label><input type="checkbox" id="chkAll" ${allChecked ? "checked" : ""}> 전체 선택</label>
+        <button class="btn bulk-del" id="bulkDelBtn" ${selected.size ? "" : "disabled"}>선택 삭제${selected.size ? ` (${selected.size})` : ""}</button>
+        <span class="bulk-count">${list.length}개</span>
+      </div>` +
       list.map((r) => `
-      <div class="prod-row">
+      <div class="prod-row${selected.has(String(r.id)) ? " sel" : ""}">
+        <input type="checkbox" class="rowchk" data-chk="${r.id}" ${selected.has(String(r.id)) ? "checked" : ""}>
         ${r.image ? `<img src="${esc(r.image)}" alt="" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'noimg'}))">` : `<div class="noimg"></div>`}
         <div>
           <div class="pname">${esc(r.name)}</div>
@@ -227,6 +251,32 @@
       () => openForm(rows.find((x) => String(x.id) === b.dataset.edit))));
     el.querySelectorAll("[data-del]").forEach((b) => b.addEventListener("click",
       () => delRow(rows.find((x) => String(x.id) === b.dataset.del))));
+    el.querySelectorAll("[data-chk]").forEach((cb) => cb.addEventListener("change", () => {
+      const id = cb.dataset.chk;
+      if (cb.checked) selected.add(id); else selected.delete(id);
+      renderList(document.getElementById("q").value.trim());
+    }));
+    const chkAll = document.getElementById("chkAll");
+    if (chkAll) chkAll.addEventListener("change", () => {
+      if (chkAll.checked) list.forEach((r) => selected.add(String(r.id)));
+      else list.forEach((r) => selected.delete(String(r.id)));
+      renderList(document.getElementById("q").value.trim());
+    });
+    const bulkBtn = document.getElementById("bulkDelBtn");
+    if (bulkBtn) bulkBtn.addEventListener("click", bulkDelete);
+  }
+
+  async function bulkDelete() {
+    const ids = [...selected];
+    if (!ids.length) return;
+    const names = ids.map((id) => { const r = rows.find((x) => String(x.id) === id); return r ? r.name : id; });
+    const preview = names.slice(0, 10).join("\n") + (names.length > 10 ? `\n… 외 ${names.length - 10}개` : "");
+    if (!confirm(`선택한 ${ids.length}개 상품을 삭제할까요?\n\n${preview}`)) return;
+    const { error } = await sb.from(TABLE).delete().in("id", ids.map(Number));
+    if (error) { alert("일괄 삭제 실패: " + error.message); return; }
+    selected.clear();
+    signalCatalog();
+    await loadRows();
   }
 
   // ====== 추가/수정 폼 ======
