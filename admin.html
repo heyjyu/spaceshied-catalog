@@ -10,7 +10,7 @@
   <title>관리자 — 상품 관리</title>
   <!-- 테마: 모바일(≤860px) 라이트 고정, 데스크톱은 저장값(모든 페이지 동일 로직) -->
   <script>document.documentElement.dataset.theme = window.matchMedia("(max-width: 860px)").matches ? "light" : (localStorage.getItem("theme") || "light");</script>
-  <link rel="stylesheet" href="styles.css?v=30" />
+  <link rel="stylesheet" href="styles.css?v=31" />
   <style>
     .admin-wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
     .admin-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
@@ -188,7 +188,7 @@
           <input id="q" placeholder="상품명 검색…">
         </div>
         <button class="btn icon-only" id="adminTheme" title="다크/라이트 전환" aria-label="테마 전환">🌙</button>
-        <button class="btn" id="catBtn" title="사이드바 카테고리 순서/이름 관리">📂 카테고리</button>
+        <button class="btn" id="colBtn" title="카탈로그 표 컬럼 순서/이름/노출 관리">📋 표 컬럼</button>
         <button class="btn brand" id="addBtn">＋ 새 상품</button>
         <a class="btn" href="index.html"><span aria-hidden="true">🛍️</span> 카탈로그</a>
         <button class="btn logout-btn" id="logoutBtn" title="로그아웃"><span aria-hidden="true">↩</span> 로그아웃</button>
@@ -196,7 +196,7 @@
       <div id="list">불러오는 중…</div>`;
     document.getElementById("logoutBtn").addEventListener("click", async () => { await sb.auth.signOut(); showLogin(); });
     document.getElementById("addBtn").addEventListener("click", () => openForm(null));
-    document.getElementById("catBtn").addEventListener("click", openCategories);
+    document.getElementById("colBtn").addEventListener("click", openColumns);
     document.getElementById("q").addEventListener("input", (e) => renderList(e.target.value.trim()));
     const at = document.getElementById("adminTheme");
     const setThemeIcon = () => { at.textContent = document.documentElement.dataset.theme === "dark" ? "☀️" : "🌙"; };
@@ -376,9 +376,18 @@
         </div>
       </div>`;
     document.body.appendChild(bg);
+    // 입력 변경 추적 → 바깥 클릭/취소 시 실수로 닫혀 내용 날아가는 것 방지
+    let dirty = false;
+    bg.querySelectorAll("input, select, textarea").forEach((el) =>
+      el.addEventListener("input", () => { dirty = true; }));
     const close = () => bg.remove();
-    bg.addEventListener("click", (e) => { if (e.target === bg) close(); });
-    document.getElementById("cancelBtn").addEventListener("click", close);
+    const guardedClose = () => { if (dirty && !confirm("입력한 내용이 저장되지 않았습니다. 닫을까요?")) return; close(); };
+    bg.addEventListener("click", (e) => { if (e.target === bg) guardedClose(); });
+    document.getElementById("cancelBtn").addEventListener("click", guardedClose);
+    const escHandler = (e) => { if (e.key === "Escape") guardedClose(); };
+    document.addEventListener("keydown", escHandler);
+    const origRemove = bg.remove.bind(bg);
+    bg.remove = () => { document.removeEventListener("keydown", escHandler); origRemove(); };
 
     // 이미지 업로드
     const fileEl = document.getElementById("imgFile");
@@ -546,6 +555,90 @@
     }
     try { signalCatalog(); } catch (e) {}
     alert("저장 완료! 카탈로그를 새로고침하면 사이드바에 반영됩니다.");
+    showAdmin();
+  }
+
+  // ====== 표 컬럼 관리 (카탈로그 리스트 보기 순서/이름/노출) ======
+  let colLoadedKeys = [];
+  function colRowHtml(c) {
+    return `<div class="cat-row" draggable="true" data-key="${esc(c.key)}">
+      <span class="drag" title="드래그로 이동">⋮⋮</span>
+      <input class="cat-label" value="${esc(c.label)}" placeholder="${esc(c.key)}">
+      <span class="cat-key">${esc(c.key)}</span>
+      <label class="cat-vis-l"><input type="checkbox" class="cat-vis" ${c.visible ? "checked" : ""}> 노출</label>
+      <span class="cat-move">
+        <button class="catmv" data-dir="up" title="위로" aria-label="위로">▲</button>
+        <button class="catmv" data-dir="down" title="아래로" aria-label="아래로">▼</button>
+      </span>
+    </div>`;
+  }
+  function bindColRow(row) {
+    const cont = document.getElementById("colList");
+    row.addEventListener("dragstart", () => { dragEl = row; setTimeout(() => row.classList.add("dragging"), 0); });
+    row.addEventListener("dragend", () => { row.classList.remove("dragging"); dragEl = null; });
+    row.querySelectorAll(".catmv").forEach((b) => b.addEventListener("click", () => {
+      if (b.dataset.dir === "up" && row.previousElementSibling) cont.insertBefore(row, row.previousElementSibling);
+      else if (b.dataset.dir === "down" && row.nextElementSibling) cont.insertBefore(row.nextElementSibling, row);
+      row.scrollIntoView({ block: "nearest" });
+    }));
+  }
+  async function openColumns() {
+    // 후보 컬럼 = COLUMN_MAP 의 한글 헤더(표에 나올 수 있는 모든 컬럼)
+    const candidates = Object.values(FIELDS);
+    const defHide = new Set((window.CONFIG && CONFIG.HIDE_COLUMNS) || []);
+    let saved = [];
+    try { const res = await sb.from("column_config").select("*"); saved = res.data || []; } catch (e) {}
+    colLoadedKeys = saved.map((c) => c.key);
+    const savedMap = {}; saved.forEach((c) => (savedMap[c.key] = c));
+    const list = candidates.map((h, i) => {
+      const s = savedMap[h];
+      let sort = s ? s.sort : i;
+      if (sort == null) sort = 9999;
+      return { key: h, label: s ? (s.label || "") : "", visible: s ? s.visible !== false : !defHide.has(h), sort };
+    }).sort((a, b) => a.sort - b.sort || candidates.indexOf(a.key) - candidates.indexOf(b.key));
+
+    app.innerHTML = `
+      <div class="admin-top">
+        <h1>표 컬럼 관리</h1>
+        <div style="flex:1"></div>
+        <button class="btn" id="colBack">← 상품 목록</button>
+        <button class="btn brand" id="colSave">저장</button>
+      </div>
+      <div class="notice" style="margin-bottom:14px">⋮⋮ 드래그로 <b>순서</b> · 이름 <b>수정</b>(비우면 원래 이름) · <b>노출</b> 체크 해제하면 표에서 숨김. 저장하면 카탈로그 <b>리스트(표) 보기</b>에 반영됩니다.</div>
+      <div id="colList">${list.map(colRowHtml).join("")}</div>`;
+    document.getElementById("colBack").addEventListener("click", showAdmin);
+    document.getElementById("colSave").addEventListener("click", saveColumns);
+    const cont = document.getElementById("colList");
+    cont.querySelectorAll(".cat-row").forEach(bindColRow);
+    cont.addEventListener("dragover", (e) => {
+      e.preventDefault();
+      if (!dragEl) return;
+      const els = [...cont.querySelectorAll(".cat-row:not(.dragging)")];
+      let best = { off: -Infinity, el: null };
+      for (const ch of els) { const b = ch.getBoundingClientRect(); const off = e.clientY - b.top - b.height / 2; if (off < 0 && off > best.off) best = { off, el: ch }; }
+      if (best.el == null) cont.appendChild(dragEl); else cont.insertBefore(dragEl, best.el);
+    });
+  }
+  async function saveColumns() {
+    const els = [...document.querySelectorAll("#colList .cat-row")];
+    const payload = els.map((el, i) => ({
+      key: el.dataset.key,
+      label: el.querySelector(".cat-label").value.trim(),
+      sort: i,
+      visible: el.querySelector(".cat-vis").checked,
+    }));
+    const currentKeys = payload.map((p) => p.key);
+    const removed = colLoadedKeys.filter((k) => !currentKeys.includes(k));
+    if (removed.length) {
+      const { error: delErr } = await sb.from("column_config").delete().in("key", removed);
+      if (delErr) { alert("삭제 실패: " + delErr.message); return; }
+    }
+    if (payload.length) {
+      const { error } = await sb.from("column_config").upsert(payload, { onConflict: "key" });
+      if (error) { alert("저장 실패: " + error.message + "\n\n(column_config 테이블이 없으면 supabase_column_config.sql 먼저 실행하세요)"); return; }
+    }
+    try { signalCatalog(); } catch (e) {}
+    alert("저장 완료! 카탈로그 표 보기를 새로고침하면 반영됩니다.");
     showAdmin();
   }
 

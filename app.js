@@ -12,6 +12,7 @@ let viewMode = "gallery";  // "table" | "gallery" — 갤러리 기본
 let suggestItems = [];   // 자동완성 후보 [{text, lc, type, key}]
 let suggestSel = -1;     // 키보드 선택 인덱스
 let categoryCfg = {};    // 사이드바 카테고리 설정(Supabase categories): {key:{label,sort,visible}}
+let columnCfg = {};      // 표 컬럼 설정(Supabase column_config): {헤더:{label,sort,visible}}
 
 // 현재 필터 상태
 const filterState = { search: "", facets: {}, stock: "", favOnly: false, category: "", lifecycle: "", sort: "" };
@@ -242,6 +243,14 @@ function loadFromSupabase() {
     .then((cats) => {
       categoryCfg = {};
       (cats || []).forEach((c) => { categoryCfg[c.key] = { label: c.label || "", sort: c.sort, visible: c.visible !== false }; });
+      // 표 컬럼 설정(순서/이름/노출) 로드 → 그다음 상품
+      return fetch(`${s.URL}/rest/v1/column_config?select=key,label,sort,visible`, {
+        headers: { apikey: s.ANON_KEY, Authorization: `Bearer ${s.ANON_KEY}` },
+      }).then((r) => (r.ok ? r.json() : [])).catch(() => []);
+    })
+    .then((cols) => {
+      columnCfg = {};
+      (cols || []).forEach((c) => { columnCfg[c.key] = { label: c.label || "", sort: c.sort, visible: c.visible !== false }; });
       loadProductsFromSupabase();
     });
 }
@@ -390,6 +399,20 @@ function buildColumns(headers) {
   const hide = new Set(CONFIG.HIDE_COLUMNS || []);
   const colorKey = (facetCols.find((f) => f.derive === "color") || {}).key;
   const sizeKey = (facetCols.find((f) => f.derive === "mm") || {}).key;
+  const hasCfg = columnCfg && Object.keys(columnCfg).length > 0;
+  // 표시 순서/노출: column_config 가 있으면 그 설정 우선, 없으면 기존(매핑 순서 + HIDE_COLUMNS)
+  let ordered;
+  if (hasCfg) {
+    ordered = headers
+      .filter((h) => { const c = columnCfg[h]; return c ? c.visible !== false : !hide.has(h); })
+      .sort((a, b) => {
+        const sa = columnCfg[a] ? (columnCfg[a].sort ?? 9999) : 9999;
+        const sb = columnCfg[b] ? (columnCfg[b].sort ?? 9999) : 9999;
+        return sa - sb || headers.indexOf(a) - headers.indexOf(b);
+      });
+  } else {
+    ordered = headers.filter((h) => !hide.has(h));
+  }
   const cols = [];
   // 맨 앞: 즐겨찾기 별 컬럼
   cols.push({
@@ -397,9 +420,9 @@ function buildColumns(headers) {
     resizable: false, cssClass: "col-fav",
     formatter: (cell) => `<span class="fav-star${isFav(cell.getRow().getData()) ? " on" : ""}">★</span>`,
   });
-  for (const h of headers) {
-    if (hide.has(h)) continue;                    // 내부 컬럼 숨김(원본탭 등)
-    const col = { title: h, field: h, resizable: true };
+  for (const h of ordered) {
+    const lbl = (columnCfg[h] && columnCfg[h].label) ? columnCfg[h].label : h;
+    const col = { title: lbl, field: h, resizable: true };
     if (h === colKeys.image) {
       col.width = 70; col.headerSort = false; col.title = "사진";
       col.formatter = (cell) => {
