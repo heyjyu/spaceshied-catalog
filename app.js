@@ -1101,7 +1101,7 @@ function openDetail(r) {
           if (!yr && !pr) return "";
           return `<div class="detail-headline">
             ${pr ? `<span class="detail-price">${esc(won(pr))}</span>` : ""}
-            ${yr ? `<span class="detail-year">${esc(yr)} 출시</span>` : ""}
+            ${yr ? `<span class="detail-year">${esc(yr)}</span>` : ""}
           </div>`;
         })()}
         <div class="detail-chips">${chips}</div>
