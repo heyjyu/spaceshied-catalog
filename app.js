@@ -965,7 +965,7 @@ function openDetail(r) {
   const colorFacet = facetCols.find((f) => f.derive === "color");
 
   // ① 기본정보 속성 (이미지/이름/링크/색상/숨김 컬럼 제외 — 색상은 별도 탭)
-  const skip = new Set([colKeys.image, colKeys.name, colKeys.link,
+  const skip = new Set([colKeys.image, colKeys.name, colKeys.link, colKeys.price, "출시년도",
     (colorFacet && colorFacet.key), ...(CONFIG.HIDE_COLUMNS || [])].filter(Boolean));
   const attrs = headersAll.filter((h) => !skip.has(h)).map((h) => {
     let val = r[h];
@@ -1031,6 +1031,15 @@ function openDetail(r) {
       <div class="detail-infocol">
         ${material ? `<div class="detail-eyebrow">${esc(material)}</div>` : ""}
         <h2 class="detail-title">${esc(rowTitle(r))}</h2>
+        ${(() => {
+          const yr = String(r["출시년도"] || "").trim();
+          const pr = colKeys.price ? String(r[colKeys.price] || "").trim() : "";
+          if (!yr && !pr) return "";
+          return `<div class="detail-headline">
+            ${pr ? `<span class="detail-price">${esc(won(pr))}</span>` : ""}
+            ${yr ? `<span class="detail-year">${esc(yr)} 출시</span>` : ""}
+          </div>`;
+        })()}
         <div class="detail-chips">${chips}</div>
         <div class="dpane" data-pane="info"><div class="attrs">${attrs}</div>
           ${coupangUrl && coupangStock !== "" ? `<div class="attr"><div class="k">쿠팡 재고</div><div class="v">${esc(coupangStock)}개${coupangSynced ? ` <span style="color:var(--muted);font-size:12px">(${esc(coupangSynced)} 기준)</span>` : ""}</div></div>` : ""}

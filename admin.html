@@ -10,7 +10,7 @@
   <title>관리자 — 상품 관리</title>
   <!-- 테마: 모바일(≤860px) 라이트 고정, 데스크톱은 저장값(모든 페이지 동일 로직) -->
   <script>document.documentElement.dataset.theme = window.matchMedia("(max-width: 860px)").matches ? "light" : (localStorage.getItem("theme") || "light");</script>
-  <link rel="stylesheet" href="styles.css?v=28" />
+  <link rel="stylesheet" href="styles.css?v=29" />
   <style>
     .admin-wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
     .admin-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
@@ -263,6 +263,12 @@
           <input id="f_launch_year" type="number" min="2000" max="2099" value="${esc(rec.launch_year ?? "")}" placeholder="예) 2024">
         </div>`;
       }
+      if (col === "price") {
+        return `<div class="field">
+          <label>판매가 <span style="color:var(--muted);font-weight:400">(숫자만, 원)</span></label>
+          <input id="f_price" type="number" min="0" value="${esc(rec.price ?? "")}" placeholder="예) 19900">
+        </div>`;
+      }
       if (col === "color_count") {
         return `<div class="field">
           <label>색상 수 <span style="color:var(--muted);font-weight:400">(옵션 갯수, 예: 12)</span></label>
@@ -347,6 +353,7 @@
       obj.sampling_date = document.getElementById("f_sampling_date").value || null;
       obj.color_count = obj.color_count ? Number(obj.color_count) : null;
       obj.launch_year = obj.launch_year ? Number(obj.launch_year) : null;
+      obj.price = obj.price ? Number(obj.price) : null;
       if (!obj.name) { document.getElementById("saveErr").textContent = "제품명은 필수입니다."; return; }
       document.getElementById("saveErr").textContent = "저장 중…";
       let resp;
