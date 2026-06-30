@@ -756,6 +756,7 @@ function renderGallery() {
             : '<div class="thumb"></div>'}
       <div class="body">
         <div class="name">${esc(rowTitle(r))}</div>
+        ${r["출시년도"] ? `<div class="card-year">${esc(String(r["출시년도"]))}</div>` : ""}
         <div class="card-chips">
           ${model ? `<span class="cchip primary">${esc(model)}</span>` : ""}
           ${material ? `<span class="cchip">${esc(material)}</span>` : ""}

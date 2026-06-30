@@ -44,6 +44,7 @@ const CONFIG = {
       base_size: "베이스규격", connector: "호환", strap_shape: "형태", base_family: "베이스그룹",
       material: "재질", size: "규격",
       buckle: "체결", color: "색상", color_count: "색상수",
+      launch_year: "출시년도",
       image: "이미지", store_url: "네이버스토어", status: "상태",
       coupang_url: "쿠팡링크", coupang_stock: "쿠팡재고", coupang_synced: "쿠팡기준일",
     },
