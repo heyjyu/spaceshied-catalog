@@ -430,7 +430,10 @@ function buildColumns(headers) {
         return sa - sb || headers.indexOf(a) - headers.indexOf(b);
       });
   } else {
-    ordered = headers.filter((h) => !hide.has(h));
+    // 디폴트 순서: 사진 → 제품명 → 나머지(매핑 순서)
+    const vis = headers.filter((h) => !hide.has(h));
+    const front = [colKeys.image, colKeys.name].filter(Boolean);
+    ordered = [...front, ...vis.filter((h) => !front.includes(h))];
   }
   const cols = [];
   // 맨 앞: 즐겨찾기 별 컬럼
