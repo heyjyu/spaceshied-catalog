@@ -10,7 +10,7 @@
   <title>관리자 — 상품 관리</title>
   <!-- 테마: 모바일(≤860px) 라이트 고정, 데스크톱은 저장값(모든 페이지 동일 로직) -->
   <script>document.documentElement.dataset.theme = window.matchMedia("(max-width: 860px)").matches ? "light" : (localStorage.getItem("theme") || "light");</script>
-  <link rel="stylesheet" href="styles.css?v=31" />
+  <link rel="stylesheet" href="styles.css?v=32" />
   <style>
     .admin-wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
     .admin-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
@@ -113,6 +113,17 @@
     .thumb-preview { width: 84px; height: 84px; border-radius: 10px; object-fit: cover; border: 1px solid var(--border);
                      background: var(--panel-2); }
     @media (max-width: 560px) { .grid2 { grid-template-columns: 1fr; } }
+    /* 커스텀 확인 팝업 (인앱 브라우저에서 native confirm 막히는 것 대비) */
+    .uiconfirm-bg { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 90;
+      display: flex; align-items: center; justify-content: center; padding: 24px; }
+    .uiconfirm { background: var(--panel); border-radius: 18px; box-shadow: var(--shadow-lg);
+      max-width: 360px; width: 100%; padding: 24px 22px 18px; }
+    .uiconfirm .msg { font-size: 15px; line-height: 1.55; color: var(--text); white-space: pre-line; margin-bottom: 20px; }
+    .uiconfirm .acts { display: flex; gap: 10px; }
+    .uiconfirm .acts .btn { flex: 1; height: 46px; border-radius: 12px; font-weight: 700;
+      display: inline-flex; align-items: center; justify-content: center; }
+    .uiconfirm .acts .btn.ghost { background: var(--panel-2); border: 1px solid var(--border); color: var(--text); }
+    .uiconfirm .acts .btn.danger { background: var(--danger); border: 1px solid var(--danger); color: #fff; }
   </style>
 </head>
 <body>
@@ -134,6 +145,29 @@
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 
   let sb = null, rows = [];
+
+  // ====== 커스텀 확인 팝업 (인앱 브라우저에서 native confirm 이 막히는 것 대비) ======
+  function uiConfirm(message, { okText = "확인", cancelText = "취소", danger = false } = {}) {
+    return new Promise((resolve) => {
+      const bg = document.createElement("div");
+      bg.className = "uiconfirm-bg";
+      bg.innerHTML = `
+        <div class="uiconfirm">
+          <div class="msg">${esc(message)}</div>
+          <div class="acts">
+            <button class="btn ghost" data-act="cancel">${esc(cancelText)}</button>
+            <button class="btn ${danger ? "danger" : "brand"}" data-act="ok">${esc(okText)}</button>
+          </div>
+        </div>`;
+      document.body.appendChild(bg);
+      const done = (v) => { bg.remove(); document.removeEventListener("keydown", onKey); resolve(v); };
+      const onKey = (e) => { if (e.key === "Escape") done(false); else if (e.key === "Enter") done(true); };
+      document.addEventListener("keydown", onKey);
+      bg.addEventListener("click", (e) => { if (e.target === bg) done(false); });
+      bg.querySelector('[data-act="cancel"]').addEventListener("click", () => done(false));
+      bg.querySelector('[data-act="ok"]').addEventListener("click", () => done(true));
+    });
+  }
 
   // ====== 부팅 ======
   function boot() {
@@ -271,7 +305,7 @@
     if (!ids.length) return;
     const names = ids.map((id) => { const r = rows.find((x) => String(x.id) === id); return r ? r.name : id; });
     const preview = names.slice(0, 10).join("\n") + (names.length > 10 ? `\n… 외 ${names.length - 10}개` : "");
-    if (!confirm(`선택한 ${ids.length}개 상품을 삭제할까요?\n\n${preview}`)) return;
+    if (!await uiConfirm(`선택한 ${ids.length}개 상품을 삭제할까요?\n\n${preview}`, { okText: `${ids.length}개 삭제`, danger: true })) return;
     const { error } = await sb.from(TABLE).delete().in("id", ids.map(Number));
     if (error) { alert("일괄 삭제 실패: " + error.message); return; }
     selected.clear();
@@ -381,7 +415,15 @@
     bg.querySelectorAll("input, select, textarea").forEach((el) =>
       el.addEventListener("input", () => { dirty = true; }));
     const close = () => bg.remove();
-    const guardedClose = () => { if (dirty && !confirm("입력한 내용이 저장되지 않았습니다. 닫을까요?")) return; close(); };
+    let closing = false;
+    const guardedClose = async () => {
+      if (closing) return;
+      if (!dirty) return close();
+      closing = true;
+      const ok = await uiConfirm("입력한 내용이 저장되지 않았습니다.\n정말 닫을까요?", { okText: "닫기", cancelText: "계속 작성", danger: true });
+      closing = false;
+      if (ok) close();
+    };
     bg.addEventListener("click", (e) => { if (e.target === bg) guardedClose(); });
     document.getElementById("cancelBtn").addEventListener("click", guardedClose);
     const escHandler = (e) => { if (e.key === "Escape") guardedClose(); };
@@ -431,7 +473,7 @@
 
   async function delRow(rec) {
     if (!rec) return;
-    if (!confirm(`삭제할까요?\n\n${rec.name}`)) return;
+    if (!await uiConfirm(`삭제할까요?\n\n${rec.name}`, { okText: "삭제", danger: true })) return;
     const { error } = await sb.from(TABLE).delete().eq("id", rec.id);
     if (error) { alert("삭제 실패: " + error.message); return; }
     signalCatalog();
