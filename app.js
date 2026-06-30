@@ -88,6 +88,15 @@ function findCol(headers, hints) {
   return null;
 }
 
+// 출시년월 표시: "2024-05"/"2024.05"/"202405" → "2024. 05", "2024" → "2024"
+function formatYM(v) {
+  const s = String(v ?? "").trim();
+  if (!s) return "";
+  const m = s.match(/^(\d{4})\D*(\d{1,2})?/);
+  if (!m) return s;
+  return m[2] ? `${m[1]}. ${m[2].padStart(2, "0")}` : m[1];
+}
+
 function won(v) {
   const n = Number(String(v).replace(/[^0-9.-]/g, ""));
   if (!isFinite(n) || String(v).trim() === "") return v ?? "";
@@ -450,6 +459,8 @@ function buildColumns(headers) {
         const v = cell.getValue();
         return v ? `<a class="cell-link" href="${esc(v)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">열기 ↗</a>` : "";
       };
+    } else if (h === "출시년월") {
+      col.formatter = (cell) => esc(formatYM(cell.getValue()));
     } else if (h === colKeys.price) {
       col.hozAlign = "right"; col.sorter = "number";
       col.formatter = (cell) => won(cell.getValue());
@@ -779,7 +790,7 @@ function renderGallery() {
             : '<div class="thumb"></div>'}
       <div class="body">
         <div class="name">${esc(rowTitle(r))}</div>
-        ${r["출시년도"] ? `<div class="card-year">${esc(String(r["출시년도"]))}</div>` : ""}
+        ${r["출시년월"] ? `<div class="card-year">${esc(formatYM(r["출시년월"]))}</div>` : ""}
         <div class="card-chips">
           ${model ? `<span class="cchip primary">${esc(model)}</span>` : ""}
           ${material ? `<span class="cchip">${esc(material)}</span>` : ""}
@@ -988,7 +999,7 @@ function openDetail(r) {
   const colorFacet = facetCols.find((f) => f.derive === "color");
 
   // ① 기본정보 속성 (이미지/이름/링크/색상/숨김 컬럼 제외 — 색상은 별도 탭)
-  const skip = new Set([colKeys.image, colKeys.name, colKeys.link, colKeys.price, "출시년도",
+  const skip = new Set([colKeys.image, colKeys.name, colKeys.link, colKeys.price, "출시년월",
     (colorFacet && colorFacet.key), ...(CONFIG.HIDE_COLUMNS || [])].filter(Boolean));
   const attrs = headersAll.filter((h) => !skip.has(h)).map((h) => {
     let val = r[h];
@@ -1055,7 +1066,7 @@ function openDetail(r) {
         ${material ? `<div class="detail-eyebrow">${esc(material)}</div>` : ""}
         <h2 class="detail-title">${esc(rowTitle(r))}</h2>
         ${(() => {
-          const yr = String(r["출시년도"] || "").trim();
+          const yr = formatYM(r["출시년월"]);
           const pr = colKeys.price ? String(r[colKeys.price] || "").trim() : "";
           if (!yr && !pr) return "";
           return `<div class="detail-headline">
