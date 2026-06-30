@@ -10,7 +10,7 @@
   <title>관리자 — 상품 관리</title>
   <!-- 테마: 모바일(≤860px) 라이트 고정, 데스크톱은 저장값(모든 페이지 동일 로직) -->
   <script>document.documentElement.dataset.theme = window.matchMedia("(max-width: 860px)").matches ? "light" : (localStorage.getItem("theme") || "light");</script>
-  <link rel="stylesheet" href="styles.css?v=51" />
+  <link rel="stylesheet" href="styles.css?v=52" />
   <style>
     .admin-wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
     .admin-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
@@ -223,6 +223,7 @@
         </div>
         <button class="btn icon-only" id="adminTheme" title="다크/라이트 전환" aria-label="테마 전환">🌙</button>
         <button class="btn" id="colBtn" title="카탈로그 표 컬럼 순서/이름/노출 관리">📋 표 컬럼</button>
+        <button class="btn" id="valBtn" title="기종·호환·재질 등 필터 값 일괄 변경/정리">🏷️ 값 정리</button>
         <button class="btn brand" id="addBtn">＋ 새 상품</button>
         <a class="btn" href="index.html"><span aria-hidden="true">🛍️</span> 카탈로그</a>
         <button class="btn logout-btn" id="logoutBtn" title="로그아웃"><span aria-hidden="true">↩</span> 로그아웃</button>
@@ -231,6 +232,7 @@
     document.getElementById("logoutBtn").addEventListener("click", async () => { await sb.auth.signOut(); showLogin(); });
     document.getElementById("addBtn").addEventListener("click", () => openForm(null));
     document.getElementById("colBtn").addEventListener("click", openColumns);
+    document.getElementById("valBtn").addEventListener("click", openValues);
     document.getElementById("q").addEventListener("input", (e) => renderList(e.target.value.trim()));
     const at = document.getElementById("adminTheme");
     const setThemeIcon = () => { at.textContent = document.documentElement.dataset.theme === "dark" ? "☀️" : "🌙"; };
@@ -246,8 +248,10 @@
 
   async function loadRows() {
     const { data, error } = await sb.from(TABLE).select("*").order("sort", { ascending: true, nullsFirst: false });
-    if (error) { document.getElementById("list").innerHTML = `<div class="notice">목록 오류: ${esc(error.message)}</div>`; return; }
+    const listEl = document.getElementById("list");
+    if (error) { if (listEl) listEl.innerHTML = `<div class="notice">목록 오류: ${esc(error.message)}</div>`; return; }
     rows = data || [];
+    if (!listEl) return;   // 다른 화면(값 정리·표 컬럼 등)에 있으면 목록 렌더 건너뜀
     const q = document.getElementById("q");        // 수정/삭제 후에도 검색 결과 유지
     renderList(q ? q.value.trim() : "");
   }
@@ -733,6 +737,66 @@
     try { signalCatalog(); } catch (e) {}
     alert("저장 완료! 카탈로그 표 보기를 새로고침하면 반영됩니다.");
     showAdmin();
+  }
+
+  // ====== 값 일괄 정리 (기종·호환·재질·체결·베이스규격 값 한 번에 바꾸기) ======
+  const VALUE_FIELDS = [
+    { col: "model", label: "기종" },
+    { col: "connector", label: "호환" },
+    { col: "base_size", label: "베이스규격" },
+    { col: "material", label: "재질" },
+    { col: "buckle", label: "체결" },
+  ];
+  let valCol = "model";
+  function renderValues() {
+    const counts = {};
+    rows.forEach((r) => { const v = String(r[valCol] || "").trim(); if (v) counts[v] = (counts[v] || 0) + 1; });
+    const vals = Object.keys(counts).sort((a, b) => a.localeCompare(b, "ko"));
+    app.innerHTML = `
+      <div class="admin-top">
+        <h1>값 일괄 정리</h1>
+        <select id="valField" style="width:auto;flex:none;padding:9px 12px;border:1px solid var(--border);border-radius:10px;background:var(--panel);color:var(--text);font-size:14px">
+          ${VALUE_FIELDS.map((f) => `<option value="${f.col}"${f.col === valCol ? " selected" : ""}>${f.label}</option>`).join("")}
+        </select>
+        <div style="flex:1"></div>
+        <button class="btn" id="valBack">← 상품 목록</button>
+        <a class="btn" href="index.html"><span aria-hidden="true">🛍️</span> 카탈로그</a>
+        <button class="btn brand" id="valSave">변경 저장</button>
+      </div>
+      <div class="notice" style="margin-bottom:14px">값을 고치고 <b>변경 저장</b>하면 그 값을 가진 <b>모든 상품</b>에 일괄 적용됩니다. 같은 이름으로 바꾸면 두 값이 <b>합쳐집니다</b>. (비우면 변경 안 함)</div>
+      <div id="valList">${vals.length ? vals.map((v) => `
+        <div class="cat-row" data-old="${esc(v)}">
+          <input class="cat-label" style="width:280px" value="${esc(v)}">
+          <span class="cat-key">${counts[v]}개</span>
+        </div>`).join("") : `<div class="notice">이 항목에 값이 없습니다.</div>`}</div>`;
+    document.getElementById("valBack").addEventListener("click", showAdmin);
+    document.getElementById("valField").addEventListener("change", (e) => { valCol = e.target.value; renderValues(); });
+    document.getElementById("valSave").addEventListener("click", saveValues);
+  }
+  async function openValues() { valCol = "model"; renderValues(); }
+  async function saveValues() {
+    const els = [...document.querySelectorAll("#valList .cat-row")];
+    const changes = els.map((el) => ({ old: el.dataset.old, neu: el.querySelector(".cat-label").value.trim() }))
+      .filter((c) => c.neu && c.neu !== c.old);
+    if (!changes.length) { alert("바뀐 값이 없습니다."); return; }
+    const label = (VALUE_FIELDS.find((f) => f.col === valCol) || {}).label || valCol;
+    const summary = changes.slice(0, 12).map((c) => `· ${c.old} → ${c.neu}`).join("\n") + (changes.length > 12 ? `\n… 외 ${changes.length - 12}건` : "");
+    if (!await uiConfirm(`[${label}] ${changes.length}건 일괄 변경할까요?\n\n${summary}`, { okText: "변경", danger: false })) return;
+    const btn = document.getElementById("valSave"); btn.disabled = true; btn.textContent = "저장 중…";
+    for (const c of changes) {
+      let r;
+      for (let i = 0; i < 3; i++) {
+        try { r = await sb.from(TABLE).update({ [valCol]: c.neu }).eq(valCol, c.old); }
+        catch (e) { r = { error: { message: String(e && e.message || e) } }; }
+        if (!r.error || !/fetch|network|load failed/i.test(r.error.message || "")) break;
+        await new Promise((res) => setTimeout(res, 600 * (i + 1)));
+      }
+      if (r.error) { btn.disabled = false; btn.textContent = "변경 저장"; alert(`변경 실패(${c.old}): ${r.error.message}`); return; }
+    }
+    signalCatalog();
+    await loadRows();   // rows 갱신
+    alert(`${changes.length}건 변경 완료! 카탈로그를 새로고침하면 반영됩니다.`);
+    renderValues();
   }
 
   boot();
