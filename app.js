@@ -796,7 +796,6 @@ function renderGallery() {
         ${r["출시년월"] ? `<div class="card-year">${esc(formatYM(r["출시년월"]))}</div>` : ""}
         <div class="card-chips">
           ${model ? `<span class="cchip primary">${esc(model)}</span>` : ""}
-          ${material ? `<span class="cchip">${esc(material)}</span>` : ""}
         </div>
         <div class="card-foot">
           ${size ? `<span class="size-badge">${esc(size)}</span>` : ""}
