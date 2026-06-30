@@ -268,6 +268,13 @@ select.filter, .btn {
   box-shadow: var(--shadow-sm);
   min-width: 112px;
 }
+/* 사이드바 안 통계: 2열 그리드 + 컴팩트 */
+.sidebar .stats { padding: 0; gap: 7px; display: grid; grid-template-columns: 1fr 1fr; }
+.sidebar .stat-card { min-width: 0; padding: 9px 11px; }
+.sidebar .stat-card .label { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.sidebar .stat-card .value { font-size: 18px; }
+.sidebar .stat-fav { margin-left: 0; grid-column: 1 / -1; justify-content: center; }
+
 .stat-card .label { color: var(--muted); font-size: 12px; font-weight: 500; }
 .stat-card .value { font-size: 22px; font-weight: 700; margin-top: 3px; letter-spacing: -0.02em; }
 .stat-card .value.danger { color: var(--danger); }
