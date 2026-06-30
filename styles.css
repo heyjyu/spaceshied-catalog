@@ -186,17 +186,28 @@ select.filter, .btn {
 /* ---------- 레이아웃: 왼쪽 사이드바 + 콘텐츠 ---------- */
 .layout { display: flex; align-items: flex-start; }
 .content { flex: 1; min-width: 0; }
+
+/* 사이드바 래퍼: sticky + 탭 overflow 허용 */
+.sidebar-wrap {
+  flex: none;
+  display: flex; align-items: flex-start;
+  position: sticky; top: 64px; max-height: calc(100vh - 64px);
+  transition: width .22s ease;
+}
+.sidebar-wrap.collapsed { width: 0; }
+
 .sidebar {
   width: 248px; flex: none;
   background: var(--panel); border-right: 1px solid var(--border);
-  position: sticky; top: 64px; max-height: calc(100vh - 64px); overflow-y: auto;
-  position: relative;
+  max-height: calc(100vh - 64px); overflow-y: auto;
+  transition: width .22s ease, opacity .22s ease;
 }
+.sidebar-wrap.collapsed .sidebar { width: 0; opacity: 0; pointer-events: none; border-right: none; overflow: hidden; }
 .sidebar-inner { padding: 16px 14px 28px; display: flex; flex-direction: column; gap: 16px; }
 
 /* 사이드바 접기 탭 */
 .sidebar-collapse-tab {
-  position: absolute; top: 50%; right: -16px; transform: translateY(-50%);
+  flex: none; align-self: center;
   width: 16px; height: 48px;
   background: var(--panel); border: 1px solid var(--border); border-left: none;
   border-radius: 0 8px 8px 0;
@@ -206,8 +217,8 @@ select.filter, .btn {
 }
 .sidebar-collapse-tab:hover { background: var(--panel-2); color: var(--text); }
 .sidebar-collapse-tab svg { width: 12px; height: 12px; }
-.sidebar.collapsed .sidebar-collapse-tab { right: -16px; border-left: 1px solid var(--border); border-radius: 8px; }
-.sidebar.collapsed .sidebar-collapse-icon { transform: rotate(180deg); }
+.sidebar-wrap.collapsed .sidebar-collapse-tab { border-left: 1px solid var(--border); border-radius: 8px; }
+.sidebar-wrap.collapsed .sidebar-collapse-icon { transform: rotate(180deg); }
 
 /* 제품 카테고리 네비 */
 .cat-nav { display: flex; flex-direction: column; gap: 2px; }
