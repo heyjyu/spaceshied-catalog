@@ -672,6 +672,7 @@ main { padding: 18px 24px 48px; max-width: 1400px; margin: 0 auto; }
 }
 .cchip.primary { background: var(--brand-soft); color: var(--brand); border-color: transparent; }
 .card-foot { display: flex; align-items: center; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
+.card-price { margin-left: auto; font-size: 15px; font-weight: 800; color: var(--text); letter-spacing: -0.02em; }
 [data-theme="dark"] .card-status.live { background: #133520; color: #4ade80; }
 [data-theme="dark"] .card-status.disc { background: #3a1715; color: #f87171; }
 

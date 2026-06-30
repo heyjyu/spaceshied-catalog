@@ -785,6 +785,7 @@ function renderGallery() {
     const material = tf ? String(r[tf.key] || "").trim() : "";
     const size = sizeFacet ? (firstMm(r[sizeFacet.key]) || firstMm(rowTitle(r))) : "";
     const cc = colorCountOf(r);
+    const price = colKeys.price ? String(r[colKeys.price] || "").trim() : "";
     const st = STATUS_DEF[statusKey(r)];
     return `<div class="card" data-i="${i}">
       ${st.cls !== "st-active" ? `<span class="card-status ${st.cls}">${st.label}</span>` : ""}
@@ -800,6 +801,7 @@ function renderGallery() {
         <div class="card-foot">
           ${size ? `<span class="size-badge">${esc(size)}</span>` : ""}
           ${cc ? `<span class="cc-badge">${cc}색상</span>` : ""}
+          ${price ? `<span class="card-price">${esc(won(price))}</span>` : ""}
         </div>
       </div>
     </div>`;
