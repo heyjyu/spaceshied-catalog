@@ -10,7 +10,7 @@
   <title>관리자 — 상품 관리</title>
   <!-- 테마: 모바일(≤860px) 라이트 고정, 데스크톱은 저장값(모든 페이지 동일 로직) -->
   <script>document.documentElement.dataset.theme = window.matchMedia("(max-width: 860px)").matches ? "light" : (localStorage.getItem("theme") || "light");</script>
-  <link rel="stylesheet" href="styles.css?v=48" />
+  <link rel="stylesheet" href="styles.css?v=49" />
   <style>
     .admin-wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
     .admin-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
@@ -495,10 +495,18 @@
       obj.color_chart = ccEl && ccEl.value.trim() ? ccEl.value.trim() : null;
       if (!obj.name) { document.getElementById("saveErr").textContent = "제품명은 필수입니다."; return; }
       document.getElementById("saveErr").textContent = "저장 중…";
+      const doSave = () => isNew ? sb.from(TABLE).insert(obj) : sb.from(TABLE).update(obj).eq("id", rec.id);
+      // 네트워크 일시 끊김(Failed to fetch)에 대비해 최대 3회 재시도
       let resp;
-      if (isNew) resp = await sb.from(TABLE).insert(obj);
-      else resp = await sb.from(TABLE).update(obj).eq("id", rec.id);
-      if (resp.error) { document.getElementById("saveErr").textContent = "저장 실패: " + resp.error.message; return; }
+      for (let i = 0; i < 3; i++) {
+        try { resp = await doSave(); }
+        catch (e) { resp = { error: { message: String(e && e.message || e) } }; }
+        if (!resp.error) break;
+        if (!/fetch|network|networkerror|load failed/i.test(resp.error.message || "")) break;  // 네트워크 외 오류는 즉시 표시
+        document.getElementById("saveErr").textContent = `저장 재시도 중… (${i + 1}/3)`;
+        await new Promise((r) => setTimeout(r, 600 * (i + 1)));
+      }
+      if (resp.error) { document.getElementById("saveErr").textContent = "저장 실패: " + resp.error.message + "\n(네트워크 문제면 잠시 후 다시 시도하거나 일반 브라우저로 열어보세요)"; return; }
       signalCatalog();           // 열려 있는 카탈로그 탭 자동 갱신
       close(); await loadRows();
     });
