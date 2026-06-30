@@ -97,6 +97,13 @@ function formatYM(v) {
   return m[2] ? `${m[1]}. ${m[2].padStart(2, "0")}` : m[1];
 }
 
+// 호환(커넥터) 표시 라벨: 공용/범용 = "커넥터 연결형", 기종 전용 = "기종별 일체형"
+function connectorLabel(v) {
+  const s = String(v ?? "").trim();
+  if (!s) return "";
+  return /공용|공통|범용|universal/i.test(s) ? "커넥터 연결형" : "기종별 일체형";
+}
+
 function won(v) {
   const n = Number(String(v).replace(/[^0-9.-]/g, ""));
   if (!isFinite(n) || String(v).trim() === "") return v ?? "";
@@ -1003,23 +1010,16 @@ function openDetail(r) {
   const colorFacet = facetCols.find((f) => f.derive === "color");
 
   // ① 기본정보 속성 (이미지/이름/링크/색상/숨김 컬럼 제외 — 색상은 별도 탭)
-  // 호환 타입: 공용/범용 커넥터 = "커넥터 연결형", 기종 전용 = "기종별 일체형"
   const connFacet = facetCols.find((f) => f.label === "호환");
-  const connVal = connFacet ? String(r[connFacet.key] || "").trim() : "";
-  const connType = connVal ? (/공용|공통|범용|universal/i.test(connVal) ? "커넥터 연결형" : "기종별 일체형") : "";
   const skip = new Set([colKeys.image, colKeys.name, colKeys.link, colKeys.price, "출시년월",
     (colorFacet && colorFacet.key), ...(CONFIG.HIDE_COLUMNS || [])].filter(Boolean));
   const attrs = headersAll.filter((h) => !skip.has(h)).map((h) => {
     let val = r[h];
     if (h === colKeys.price) val = won(val);
     else if (h === colKeys.stock) { const c = stockClass(val); val = c === "out" ? "품절 (0)" : (val ? `${val}개` : "-"); }
+    else if (connFacet && h === connFacet.key) val = esc(connectorLabel(val));  // 공용(범용)→커넥터 연결형, 전용→기종별 일체형
     else val = esc(val);
-    let row = `<div class="attr"><div class="k">${esc(h)}</div><div class="v">${val || "-"}</div></div>`;
-    // 호환 행 바로 아래에 '호환 타입' 추가
-    if (connFacet && h === connFacet.key && connType) {
-      row += `<div class="attr"><div class="k">호환 타입</div><div class="v">${esc(connType)}</div></div>`;
-    }
-    return row;
+    return `<div class="attr"><div class="k">${esc(h)}</div><div class="v">${val || "-"}</div></div>`;
   }).join("");
 
   // ② 컬러 옵션
