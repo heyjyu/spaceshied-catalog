@@ -1136,16 +1136,16 @@ function init() {
   });
   // 사이드바 토글 (데스크톱) — 헤더 버튼 + 사이드바 탭 둘 다
   const sidebarWrap = $("sidebarWrap");
-  const toggleSidebar = () => {
+  const collapseSidebar = () => {
     const collapsed = sidebarWrap.classList.toggle("collapsed");
     try { localStorage.setItem("sidebarCollapsed", collapsed ? "1" : "0"); } catch(e) {}
   };
   if (sidebarWrap) {
     if (localStorage.getItem("sidebarCollapsed") === "1") sidebarWrap.classList.add("collapsed");
     const sidebarToggleBtn = $("btnSidebarToggle");
-    if (sidebarToggleBtn) sidebarToggleBtn.addEventListener("click", toggleSidebar);
+    if (sidebarToggleBtn) sidebarToggleBtn.addEventListener("click", collapseSidebar);
     const collapseTab = $("sidebarCollapseTab");
-    if (collapseTab) collapseTab.addEventListener("click", toggleSidebar);
+    if (collapseTab) collapseTab.addEventListener("click", collapseSidebar);
   }
 
   $("overlay").addEventListener("click", closeDetail);
