@@ -750,7 +750,7 @@ function renderGallery() {
     const cc = colorCountOf(r);
     const st = STATUS_DEF[statusKey(r)];
     return `<div class="card" data-i="${i}">
-      <span class="card-status ${st.cls}">${st.label}</span>
+      ${st.cls !== "st-active" ? `<span class="card-status ${st.cls}">${st.label}</span>` : ""}
       <button class="card-fav${isFav(r) ? " on" : ""}" data-i="${i}" aria-label="즐겨찾기">★</button>
       ${img ? `<img class="thumb" src="${esc(img)}" loading="lazy" alt="">`
             : '<div class="thumb"></div>'}
