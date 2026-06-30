@@ -14,7 +14,7 @@
   <link href="https://unpkg.com/tabulator-tables@5.6.1/dist/css/tabulator.min.css" rel="stylesheet" />
   <script src="https://unpkg.com/tabulator-tables@5.6.1/dist/js/tabulator.min.js"></script>
   <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
-  <link rel="stylesheet" href="styles.css?v=25" />
+  <link rel="stylesheet" href="styles.css?v=26" />
 </head>
 <body>
   <header class="topbar">
@@ -53,6 +53,9 @@
   <div class="layout">
     <!-- 왼쪽 사이드바: 카테고리 + 필터 -->
     <aside class="sidebar" id="sidebar" aria-label="카테고리 및 필터">
+      <button class="sidebar-collapse-tab" id="sidebarCollapseTab" aria-label="사이드바 접기/펼치기">
+        <svg class="sidebar-collapse-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
       <div class="sidebar-inner">
         <!-- 정렬 -->
         <div class="filter-head">정렬</div>
@@ -97,7 +100,7 @@
   <div id="overlay" class="hidden"></div>
   <aside id="detail" class="hidden" aria-label="상품 상세"></aside>
 
-  <script src="config.js?v=25"></script>
-  <script src="app.js?v=25"></script>
+  <script src="config.js?v=26"></script>
+  <script src="app.js?v=26"></script>
 </body>
 </html>
