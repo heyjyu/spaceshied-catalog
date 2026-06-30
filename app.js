@@ -405,7 +405,7 @@ function buildFacetDropdowns(rows) {
     if (f.derive === "mm") vals.sort((a, b) => parseInt(a) - parseInt(b));
     else if (f.derive === "color") vals.sort((a, b) => colorOrder(a) - colorOrder(b));
     else vals.sort((a, b) => a.localeCompare(b, "ko"));
-    const optLabel = (f.label === "호환") ? connUniversalLabel : ((x) => x);
+    const optLabel = (f.label === "호환" || f.label === "기종") ? connUniversalLabel : ((x) => x);
     sel.innerHTML = `<option value="">${esc(f.label)}</option>` +
       vals.map((v) => `<option value="${esc(v)}">${esc(optLabel(v))}</option>`).join("");
     sel.addEventListener("change", (e) => {
@@ -422,6 +422,7 @@ function buildColumns(headers) {
   const colorKey = (facetCols.find((f) => f.derive === "color") || {}).key;
   const sizeKey = (facetCols.find((f) => f.derive === "mm") || {}).key;
   const connKey = (facetCols.find((f) => f.label === "호환") || {}).key;
+  const modelKey2 = (facetCols.find((f) => f.label === "기종") || {}).key;
   const hasCfg = columnCfg && Object.keys(columnCfg).length > 0;
   // 필수 컬럼(항상 노출): 제품명·사진·규격 ("규격"은 COLUMN_MAP.size 헤더, sizeKey는 '베이스규격'을 잡을 수 있어 직접 지정)
   const sizeHeader = ((CONFIG.SUPABASE && CONFIG.SUPABASE.COLUMN_MAP) || {}).size || "규격";
@@ -479,7 +480,7 @@ function buildColumns(headers) {
         const v = cell.getValue();
         return v ? `<a class="cell-link" href="${esc(v)}" target="_blank" rel="noopener" onclick="event.stopPropagation()">열기 ↗</a>` : "";
       };
-    } else if (h === connKey) {
+    } else if (h === connKey || h === modelKey2) {
       col.formatter = (cell) => esc(connUniversalLabel(cell.getValue()));
     } else if (h === "출시년월") {
       col.formatter = (cell) => esc(formatYM(cell.getValue()));
@@ -815,7 +816,7 @@ function renderGallery() {
         <div class="name">${esc(rowTitle(r))}</div>
         ${r["출시년월"] ? `<div class="card-year">${esc(formatYM(r["출시년월"]))}</div>` : ""}
         <div class="card-chips">
-          ${model ? `<span class="cchip primary">${esc(model)}</span>` : ""}
+          ${model ? `<span class="cchip primary">${esc(connUniversalLabel(model))}</span>` : ""}
         </div>
         <div class="card-foot">
           ${size ? `<span class="size-badge">${esc(size)}</span>` : ""}
@@ -1030,6 +1031,7 @@ function openDetail(r) {
     if (h === colKeys.price) val = won(val);
     else if (h === colKeys.stock) { const c = stockClass(val); val = c === "out" ? "품절 (0)" : (val ? `${val}개` : "-"); }
     else if (connFacet && h === connFacet.key) val = esc(connectorLabel(val));  // 공용(범용)→커넥터 연결형, 전용→기종별 일체형
+    else if (mf && h === mf.key) val = esc(connUniversalLabel(val));  // 기종 '공용'→커넥터 연결형
     else val = esc(val);
     return `<div class="attr"><div class="k">${esc(h)}</div><div class="v">${val || "-"}</div></div>`;
   }).join("");
@@ -1068,7 +1070,7 @@ function openDetail(r) {
 
   const chips = [
     `<span class="dchip ${st.cls}">${st.label}</span>`,
-    model ? `<span class="dchip">${esc(model)}</span>` : "",
+    model ? `<span class="dchip">${esc(connUniversalLabel(model))}</span>` : "",
     size ? `<span class="dchip">${esc(size)}</span>` : "",
   ].filter(Boolean).join("");
 
