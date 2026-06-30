@@ -289,6 +289,7 @@ function loadProductsFromSupabase() {
         const o = {};
         for (const [col, head] of Object.entries(map)) o[head] = rec[col] != null ? String(rec[col]) : "";
         if (rec.id != null) o.__id = String(rec.id);  // 즐겨찾기 고유키용(헤더 목록 밖이라 컬럼·검색엔 노출 안 됨)
+        if (rec.color_chart != null) o.__colorChart = String(rec.color_chart);  // 컬러차트 이미지(헤더 밖 → 표/검색 비노출, 상세 컬러옵션 탭에서만 사용)
         return o;
       });
       ingest(headers, rows);
@@ -1043,8 +1044,10 @@ function openDetail(r) {
   const cc = colorCountOf(r);
   const swHtml = buckets.length ? `<div class="dc-swatches">${buckets.map((c) =>
     `<span class="dc-sw"><span class="swatch" style="background:${hex[c] || "#ccc"}"></span>${esc(c)}</span>`).join("")}</div>` : "";
-  const colorPane = (colorRaw || cc)
-    ? `${cc ? `<div class="detail-cc">🎨 색상 ${cc}종</div>` : ""}${swHtml}${colorRaw ? `<div class="dc-list">${esc(colorRaw)}</div>` : ""}`
+  const chart = String(r.__colorChart || "").trim();
+  const chartHtml = chart ? `<img class="color-chart" src="${esc(chart)}" alt="컬러 차트" loading="lazy">` : "";
+  const colorPane = (chart || colorRaw || cc)
+    ? `${chartHtml}${cc ? `<div class="detail-cc">🎨 색상 ${cc}종</div>` : ""}${swHtml}${colorRaw ? `<div class="dc-list">${esc(colorRaw)}</div>` : ""}`
     : `<div class="dpane-empty">등록된 색상 정보가 없습니다.</div>`;
 
   // ③ 호환 / ④ 비슷한

@@ -427,6 +427,7 @@ main { padding: 18px 24px 48px; max-width: 1400px; margin: 0 auto; }
   padding: 10px; font-size: 13px; font-weight: 600; color: var(--muted); cursor: pointer; }
 .detail-fav2.on { color: #f5b301; border-color: #f5b301; }
 .detail-infocol { flex: 1; padding: 22px 24px; overflow-y: auto; }
+.color-chart { width: 100%; height: auto; border-radius: 12px; border: 1px solid var(--border-soft); margin-bottom: 14px; display: block; }
 .detail-eyebrow { color: var(--brand); font-size: 12px; font-weight: 700; margin-bottom: 4px; }
 .detail-chips { display: flex; gap: 6px; flex-wrap: wrap; margin: 12px 0 18px; }
 .dchip { font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 8px;
