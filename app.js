@@ -1133,6 +1133,17 @@ function init() {
     try { localStorage.setItem("theme", next); } catch (e) {}
     themeIcon();
   });
+  // 사이드바 토글 (데스크톱)
+  const sidebarEl = $("sidebar");
+  const sidebarToggleBtn = $("btnSidebarToggle");
+  if (sidebarToggleBtn && sidebarEl) {
+    if (localStorage.getItem("sidebarCollapsed") === "1") sidebarEl.classList.add("collapsed");
+    sidebarToggleBtn.addEventListener("click", () => {
+      const collapsed = sidebarEl.classList.toggle("collapsed");
+      try { localStorage.setItem("sidebarCollapsed", collapsed ? "1" : "0"); } catch(e) {}
+    });
+  }
+
   $("overlay").addEventListener("click", closeDetail);
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDetail(); });
 

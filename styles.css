@@ -219,6 +219,10 @@ select.filter, .btn {
 .sidebar-actions { display: flex; flex-direction: column; gap: 8px; }
 .sidebar-actions .btn { width: 100%; justify-content: center; }
 .sidebar-backdrop { display: none; }
+.sidebar { transition: width .22s ease, opacity .22s ease; overflow: hidden; }
+.sidebar.collapsed { width: 0; border-right: none; opacity: 0; pointer-events: none; }
+.desktop-only { display: flex; }
+@media (max-width: 767px) { .desktop-only { display: none; } }
 
 /* ---------- 집계 ---------- */
 .stats {
