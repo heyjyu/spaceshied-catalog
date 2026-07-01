@@ -137,6 +137,20 @@ async function copyImageToClipboard(url) {
   }
 }
 
+// 관리자 로그인 여부: Supabase 세션 토큰(localStorage)이 있고 만료 전이면 true
+function isAdminLoggedIn() {
+  try {
+    const s = CONFIG.SUPABASE || {};
+    const ref = (s.URL || "").match(/https?:\/\/([^.]+)\./);
+    if (!ref) return false;
+    const raw = localStorage.getItem(`sb-${ref[1]}-auth-token`);
+    if (!raw) return false;
+    const t = JSON.parse(raw);
+    const exp = t && (t.expires_at || (t.currentSession && t.currentSession.expires_at));
+    return !exp || exp * 1000 > Date.now();
+  } catch (e) { return false; }
+}
+
 function won(v) {
   const n = Number(String(v).replace(/[^0-9.-]/g, ""));
   if (!isFinite(n) || String(v).trim() === "") return v ?? "";
@@ -1171,6 +1185,7 @@ function openDetail(r) {
           <div class="detail-copyhint"><span>📋 클릭하면 이미지 복사</span></div>
         </div>` : '<div class="detail-img placeholder"></div>'}
         <button class="detail-fav2${isFav(r) ? " on" : ""}" id="btnDetailFav">★ 즐겨찾기</button>
+        ${isAdminLoggedIn() && r.__id ? `<a class="detail-edit-btn" href="admin.html?edit=${encodeURIComponent(r.__id)}">✏️ 관리자 수정</a>` : ""}
       </div>
       <div class="detail-infocol">
         ${material ? `<div class="detail-eyebrow">${esc(material)}</div>` : ""}

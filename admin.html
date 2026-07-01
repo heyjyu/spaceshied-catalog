@@ -10,7 +10,7 @@
   <title>관리자 — 상품 관리</title>
   <!-- 테마: 모바일(≤860px) 라이트 고정, 데스크톱은 저장값(모든 페이지 동일 로직) -->
   <script>document.documentElement.dataset.theme = window.matchMedia("(max-width: 860px)").matches ? "light" : (localStorage.getItem("theme") || "light");</script>
-  <link rel="stylesheet" href="styles.css?v=65" />
+  <link rel="stylesheet" href="styles.css?v=66" />
   <style>
     .admin-wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
     .admin-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
@@ -320,6 +320,16 @@
     if (!listEl) return;   // 다른 화면(값 정리·표 컬럼 등)에 있으면 목록 렌더 건너뜀
     const q = document.getElementById("q");        // 수정/삭제 후에도 검색 결과 유지
     renderList(q ? q.value.trim() : "");
+    // 카탈로그 상세 '수정' 링크(admin.html?edit=ID)로 진입 시 해당 상품 폼 자동 오픈(1회)
+    if (!loadRows._editHandled) {
+      const editId = new URLSearchParams(location.search).get("edit");
+      if (editId) {
+        loadRows._editHandled = true;
+        const rec = rows.find((x) => String(x.id) === String(editId));
+        if (rec) openForm(rec);
+        history.replaceState(null, "", location.pathname);  // URL 정리(새로고침 시 재오픈 방지)
+      }
+    }
   }
 
   const selected = new Set();   // 선택된 상품 id
