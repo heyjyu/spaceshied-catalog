@@ -1160,7 +1160,6 @@ function openDetail(r) {
       <div class="detail-tabs">
         <button class="dtab active" data-tab="info">기본 정보</button>
         <button class="dtab" data-tab="color">컬러 옵션</button>
-        <button class="dtab" data-tab="compat">호환 스트랩</button>
         <button class="dtab" data-tab="similar">비슷한 제품</button>
       </div>
       <button class="dtab-close" id="btnCloseDetail" aria-label="닫기">✕</button>
@@ -1190,7 +1189,6 @@ function openDetail(r) {
             ${coupangUrl ? `<a class="store-btn" style="background:#ee2b2b" href="${esc(coupangUrl)}" target="_blank" rel="noopener">쿠팡에서 보기 ↗</a>` : ""}
           </div></div>
         <div class="dpane hidden" data-pane="color">${colorPane}</div>
-        <div class="dpane hidden" data-pane="compat">${compatPane}</div>
         <div class="dpane hidden" data-pane="similar">${simPane}</div>
       </div>
     </div>`;
