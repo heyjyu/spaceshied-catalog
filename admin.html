@@ -10,7 +10,7 @@
   <title>관리자 — 상품 관리</title>
   <!-- 테마: 모바일(≤860px) 라이트 고정, 데스크톱은 저장값(모든 페이지 동일 로직) -->
   <script>document.documentElement.dataset.theme = window.matchMedia("(max-width: 860px)").matches ? "light" : (localStorage.getItem("theme") || "light");</script>
-  <link rel="stylesheet" href="styles.css?v=61" />
+  <link rel="stylesheet" href="styles.css?v=62" />
   <style>
     .admin-wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
     .admin-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
@@ -136,15 +136,21 @@
     [data-theme="dark"] .qlink.c { background: #3a1715; border-color:#5e2420; color:#f2938c; }
     [data-theme="dark"] .qlink.f { background: #241e42; border-color:#3b3170; color:#b3a6f7; }
     [data-theme="dark"] .qlink.s { background: #33280d; border-color:#5a4715; color:#e6b53d; }
-    /* 링크 입력칸 아이콘 배지 프리픽스 — N·C 원형, Flow·1688 알약형 */
+    /* 링크 입력칸 아이콘 배지 프리픽스 — 연한 톤, N·C 원형, Flow·1688 알약형 */
     .link-row { display: flex; align-items: center; gap: 10px; }
     .link-row input { flex: 1; }
-    .link-ico { flex: none; height: 40px; display: inline-flex; align-items: center; justify-content: center;
-      font-size: 13px; font-weight: 800; color: #fff; }
-    .link-ico.n, .link-ico.c { width: 40px; border-radius: 50%; }
-    .link-ico.f, .link-ico.b { padding: 0 14px; border-radius: 12px; gap: 5px; }
-    .link-ico.n { background: #03c75a; } .link-ico.c { background: #ee2b2b; }
-    .link-ico.f { background: #4b5bdc; } .link-ico.b { background: #e79a2b; }
+    .link-ico { flex: none; height: 34px; display: inline-flex; align-items: center; justify-content: center;
+      font-size: 12.5px; font-weight: 800; gap: 4px; }
+    .link-ico.n, .link-ico.c { width: 34px; border-radius: 50%; }
+    .link-ico.f, .link-ico.b { padding: 0 13px; border-radius: 10px; }
+    .link-ico.n { background: #e4f7ec; color: #0b7a3e; }
+    .link-ico.c { background: #fdeceb; color: #c02620; }
+    .link-ico.f { background: #ece9fb; color: #4b3fbf; }
+    .link-ico.b { background: #fdf2df; color: #a9700a; }
+    [data-theme="dark"] .link-ico.n { background: #123020; color: #5fd98c; }
+    [data-theme="dark"] .link-ico.c { background: #3a1715; color: #f2938c; }
+    [data-theme="dark"] .link-ico.f { background: #241e42; color: #b3a6f7; }
+    [data-theme="dark"] .link-ico.b { background: #33280d; color: #e6b53d; }
     /* 스트랩 형태 toggle */
     .shape-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .shape-opt { text-align: center; padding: 14px 10px; border: 1px solid var(--border); border-radius: 14px; cursor: pointer;
@@ -472,10 +478,10 @@
         <div class="field"><label>쿠팡 링크</label><div class="link-row"><span class="link-ico c">C</span><input id="f_coupang_url" type="url" value="${v('coupang_url')}" placeholder="https://www.coupang.com/..."></div></div>
 
         <div class="form-sec">콘텐츠</div>
-        <div class="field"><label>Flow 기획서</label><div class="link-row"><span class="link-ico f">Flow</span><input id="f_flow_url" type="url" value="${v('flow_url')}" placeholder="https://flow.team/..."></div></div>
+        <div class="field"><label>Flow 기획서</label><div class="link-row"><span class="link-ico f">📄 Flow</span><input id="f_flow_url" type="url" value="${v('flow_url')}" placeholder="https://flow.team/..."></div></div>
 
         <div class="form-sec">소싱</div>
-        <div class="field"><label>구매 링크</label><div class="link-row"><span class="link-ico b">1688</span><input id="f_source_url" type="url" value="${v('source_url')}" placeholder="https://detail.1688.com/..."></div></div>
+        <div class="field"><label>구매 링크</label><div class="link-row"><span class="link-ico b">🛒 1688</span><input id="f_source_url" type="url" value="${v('source_url')}" placeholder="https://detail.1688.com/..."></div></div>
         <div class="grid2">
           <div class="field"><label>원가</label><div class="cost-row"><input id="f_cost_cny" type="number" min="0" step="0.01" value="${esc(rec.cost_cny ?? "")}" placeholder="0"><span class="unit">CNY</span></div></div>
           <div class="field"><label>구매처</label><input id="f_vendor" type="text" value="${v('vendor')}" placeholder="예) WANLI INTERNATIONAL"></div>
