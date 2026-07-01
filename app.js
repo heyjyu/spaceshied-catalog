@@ -889,7 +889,7 @@ function renderGallery() {
     const src = String(r["구매링크"] || "").trim();
     const qb = (cls, ch, url) => `<a class="qb ${cls}${url ? "" : " off"}" ${url ? `href="${esc(url)}" target="_blank" rel="noopener"` : 'aria-disabled="true"'} onclick="event.stopPropagation()">${ch}</a>`;
     return `<div class="card" data-i="${i}">
-      <button class="card-fav${isFav(r) ? " on" : ""}" data-i="${i}" aria-label="즐겨찾기">★</button>
+      <button class="card-fav${isFav(r) ? " on" : ""}" data-i="${i}" aria-label="즐겨찾기">${isFav(r) ? "★" : "☆"}</button>
       ${img ? `<img class="thumb" src="${esc(img)}" loading="lazy" alt="">`
             : '<div class="thumb"></div>'}
       <div class="body">
@@ -912,7 +912,9 @@ function renderGallery() {
     el.addEventListener("click", (e) => {
       e.stopPropagation();
       const r = rows[Number(el.dataset.i)];
-      el.classList.toggle("on", toggleFav(r));
+      const on = toggleFav(r);
+      el.classList.toggle("on", on);
+      el.textContent = on ? "★" : "☆";
     });
   });
   // 🎨 색상 목록 복사(중국 발주용) — 색상목록 데이터 없으면 색상명 복사
