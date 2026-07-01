@@ -387,9 +387,9 @@ function setStatus(msg, isError) {
 // ---- 컬럼/필터 자동감지 --------------------------------------------
 function detectColumns(headers, rows) {
   colKeys = {};
-  // 쿠팡* 컬럼은 상세 드로어에서 전용 처리(버튼/재고) → 일반 특수컬럼(link/stock 등) 자동감지에서 제외.
-  //  ("쿠팡링크"가 link 힌트 '링크'를, "쿠팡재고"가 stock 힌트 '재고'를 가로채는 것 방지)
-  const detectHeaders = headers.filter((h) => !/^쿠팡/.test(h));
+  // 쿠팡*·플로우링크·구매링크는 전용 처리(버튼/바로가기) → 일반 link 자동감지에서 제외.
+  //  ('플로우링크'가 link 힌트 '링크'를 가로채 네이버 버튼이 Flow로 잘못 연결되던 것 방지)
+  const detectHeaders = headers.filter((h) => !/^쿠팡/.test(h) && h !== "플로우링크" && h !== "구매링크");
   for (const [type, hints] of Object.entries(CONFIG.COLUMN_HINTS)) {
     const c = findCol(detectHeaders, hints);
     if (c) colKeys[type] = c;
