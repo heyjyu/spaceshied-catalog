@@ -10,7 +10,7 @@
   <title>관리자 — 상품 관리</title>
   <!-- 테마: 모바일(≤860px) 라이트 고정, 데스크톱은 저장값(모든 페이지 동일 로직) -->
   <script>document.documentElement.dataset.theme = window.matchMedia("(max-width: 860px)").matches ? "light" : (localStorage.getItem("theme") || "light");</script>
-  <link rel="stylesheet" href="styles.css?v=53" />
+  <link rel="stylesheet" href="styles.css?v=54" />
   <style>
     .admin-wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
     .admin-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
@@ -103,6 +103,39 @@
     .modal { background: var(--panel); border-radius: 20px; width: 600px; max-width: 100%;
              box-shadow: var(--shadow-lg); padding: 28px 28px 22px; }
     .modal h3 { margin: 0 0 20px; font-size: 22px; font-weight: 700; letter-spacing: -.02em; }
+    /* 섹션형 폼 */
+    .form-sec { font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .04em;
+      margin: 22px 0 10px; padding-bottom: 6px; border-bottom: 1px solid var(--border-soft); }
+    .form-sec:first-of-type { margin-top: 4px; }
+    /* 상태 pill */
+    .pill-group { display: flex; gap: 8px; flex-wrap: wrap; }
+    .pill-opt { padding: 9px 16px; border: 1px solid var(--border); border-radius: var(--radius-pill); background: var(--panel);
+      color: var(--text); font-size: 13.5px; font-weight: 600; cursor: pointer; transition: all .12s; }
+    .pill-opt:hover { border-color: var(--brand); }
+    .pill-opt.on { background: var(--brand); border-color: var(--brand); color: #fff; }
+    /* 마스터 ID */
+    .master-id { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
+    .master-id b { color: var(--text); font-size: 15px; font-variant-numeric: tabular-nums; }
+    /* 바로가기 chip */
+    .quick-links { display: flex; gap: 8px; flex-wrap: wrap; }
+    .qlink { display: inline-flex; align-items: center; gap: 6px; padding: 8px 13px; border: 1px solid var(--border);
+      border-radius: 10px; font-size: 13px; font-weight: 600; color: var(--text); text-decoration: none; background: var(--panel); }
+    .qlink[aria-disabled="true"] { opacity: .38; pointer-events: none; }
+    .qlink .qi { width: 20px; height: 20px; border-radius: 6px; display: inline-flex; align-items: center; justify-content: center;
+      font-size: 11px; font-weight: 800; color: #fff; }
+    .qi.n { background: #03c75a; } .qi.c { background: #ee2b2b; } .qi.f { background: #4b5bdc; } .qi.s { background: #e79a2b; }
+    .qlink:hover { border-color: var(--brand); }
+    /* 스트랩 형태 toggle */
+    .shape-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+    .shape-opt { text-align: center; padding: 14px 10px; border: 1px solid var(--border); border-radius: 14px; cursor: pointer;
+      background: var(--panel); transition: all .12s; }
+    .shape-opt:hover { border-color: var(--brand); }
+    .shape-opt.on { border-color: var(--brand); background: var(--brand-soft); box-shadow: 0 0 0 2px var(--brand-soft); }
+    .shape-opt .st-title { font-weight: 700; font-size: 14.5px; color: var(--text); }
+    .shape-opt .st-sub { font-size: 11.5px; color: var(--muted); margin-top: 4px; line-height: 1.4; }
+    .field textarea { min-height: 78px; resize: vertical; font-family: inherit; }
+    .cost-row { display: flex; align-items: center; gap: 8px; }
+    .cost-row input { flex: 1; } .cost-row .unit { color: var(--muted); font-size: 13px; }
     .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
     .modal-actions { display: flex; gap: 10px; margin-top: 24px; }
     .modal-actions .btn { height: 50px; border-radius: 14px; font-size: 15px; font-weight: 700;
@@ -331,102 +364,114 @@
   function openForm(rec) {
     const isNew = !rec;
     rec = rec || {};
-    const inputs = Object.entries(FIELDS).map(([col, label]) => {
-      if (col === "store_url") return "";   // 네이버스토어 입력칸 제거
-      if (col.startsWith("coupang_")) return "";   // 쿠팡 링크/재고는 SQL 자동 보강용 → 수기 입력칸 제외(저장 페이로드도 자동 제외)
-      if (col === "image") {
-        return `<div class="field" style="grid-column:1/-1">
-          <label>${esc(label)}</label>
-          <div style="display:flex;gap:12px;align-items:center">
-            <img class="thumb-preview" id="imgPreview" alt="" onerror="this.removeAttribute('src')"${rec.image ? ` src="${esc(rec.image)}"` : ""}>
-            <div style="flex:1">
-              <input id="f_image" type="text" placeholder="이미지 URL (또는 아래에서 업로드)" value="${esc(rec.image || "")}">
-              <input id="imgFile" type="file" accept="image/*" style="margin-top:8px;font-size:12px">
-              <div class="err" id="upErr"></div>
-            </div>
-          </div></div>`;
-      }
-      if (col === "launch_year") {
-        // "2024-05"(month picker) 또는 "2024" 호환. 기존 값이 "2024.05"/"202405"여도 YYYY-MM 으로 정규화
-        const raw = String(rec.launch_year ?? "").trim();
-        const mm = raw.match(/^(\d{4})\D*(\d{1,2})/);
-        const val = mm ? `${mm[1]}-${mm[2].padStart(2, "0")}` : (raw.match(/^\d{4}$/) ? raw : "");
-        return `<div class="field">
-          <label>출시년월</label>
-          <input id="f_launch_year" type="month" min="2000-01" max="2099-12" value="${esc(val)}">
-        </div>`;
-      }
-      if (col === "price") {
-        return `<div class="field">
-          <label>공식판매가 <span style="color:var(--muted);font-weight:400">(숫자만, 원)</span></label>
-          <input id="f_price" type="number" min="0" value="${esc(rec.price ?? "")}" placeholder="예) 19900">
-        </div>`;
-      }
-      if (col === "color_count") {
-        return `<div class="field">
-          <label>색상 수 <span style="color:var(--muted);font-weight:400">(옵션 갯수, 예: 12)</span></label>
-          <input id="f_color_count" type="number" min="0" value="${esc(rec.color_count ?? "")}" placeholder="예) 12">
-        </div>`;
-      }
-      if (col === "status") {
-        const cur = rec.status || "진행";
-        // 런칭 매트릭스 색과 1:1 (진행=출시 초록 / 기획 파랑 / 샘플 보라 / 일부 주황 / 단종 회색)
-        const STATUS_OPTS = ["진행", "기획", "샘플", "일부", "단종"];
-        const opts = STATUS_OPTS.map((v) => `<option value="${v}"${cur === v ? " selected" : ""}>${v}</option>`).join("");
-        return `<div class="field">
-          <label>${esc(label)}</label>
-          <select id="f_status">${opts}</select>
-        </div>`;
-      }
-      if (col === "strap_shape") {
-        const cur = rec.strap_shape || "";
-        const opts = ["", "일반형", "날개형"].map((v) =>
-          `<option value="${v}"${cur === v ? " selected" : ""}>${v || "(미지정)"}</option>`).join("");
-        return `<div class="field">
-          <label>${esc(label)} <span style="color:var(--muted);font-weight:400">(일자=일반형 / 아치=날개형)</span></label>
-          <select id="f_strap_shape">${opts}</select>
-        </div>`;
-      }
-      if (DROPDOWN.has(col)) {
-        const sugg = distinctVals(col);
-        // 호환: '커넥터 연결형'을 추천에 추가(저장 시 '공용(범용)'으로 자동 정규화)
-        if (col === "connector" && !sugg.includes("커넥터 연결형")) sugg.unshift("커넥터 연결형");
-        const opts = sugg.map((v) => `<option value="${esc(v)}">`).join("");
-        const hint = col === "connector" ? ` <span style="color:var(--muted);font-weight:400">('커넥터 연결형' = 공용/범용)</span>` : "";
-        return `<div class="field">
-          <label>${esc(label)}${hint}</label>
-          <input id="f_${col}" list="dl_${col}" value="${esc(rec[col] || "")}" placeholder="선택 또는 입력" autocomplete="off">
-          <datalist id="dl_${col}">${opts}</datalist>
-        </div>`;
-      }
-      const isFull = col === "name" || col === "color";
-      return `<div class="field"${isFull ? ' style="grid-column:1/-1"' : ""}>
-        <label>${esc(label)}</label>
-        <input id="f_${col}" type="text" value="${esc(rec[col] || "")}">
-      </div>`;
-    }).join("");
+    const v = (k) => esc(rec[k] ?? "");
+    const dl = (col) => distinctVals(col).map((x) => `<option value="${esc(x)}">`).join("");
+    // 출시년월 정규화(YYYY-MM)
+    const lyRaw = String(rec.launch_year ?? "").trim();
+    const lyM = lyRaw.match(/^(\d{4})\D*(\d{1,2})/);
+    const lyVal = lyM ? `${lyM[1]}-${lyM[2].padStart(2, "0")}` : (lyRaw.match(/^\d{4}$/) ? lyRaw : "");
+    // 상태 pill
+    const STATUS_OPTS = ["진행", "기획", "샘플", "일부", "단종"];
+    const curStatus = rec.status || "진행";
+    const statusPills = STATUS_OPTS.map((s) => `<button type="button" class="pill-opt${curStatus === s ? " on" : ""}" data-status="${s}">${s}</button>`).join("");
+    // 커넥터 타입(스트랩 형태): 공용/범용 = 커넥터 연결형
+    const isUniversal = !rec.connector || /공용|공통|범용/.test(String(rec.connector || ""));
+    // 종류 datalist(기본 + 기존값)
+    const kindOpts = [...new Set(["스마트 워치", "스마트 밴드", "골프거리계", "기타", ...distinctVals("kind")])].map((x) => `<option value="${esc(x)}">`).join("");
+    // 바로가기 chip
+    const qlink = (cls, icon, label, url) => { const u = String(url || "").trim();
+      return `<a class="qlink" ${u ? `href="${esc(u)}" target="_blank" rel="noopener"` : 'aria-disabled="true"'}><span class="qi ${cls}">${icon}</span>${label}</a>`; };
 
     const bg = document.createElement("div");
     bg.className = "modal-bg";
     bg.innerHTML = `
       <div class="modal">
         <h3>${isNew ? "＋ 새 상품 등록" : "상품 수정"}</h3>
-        <div class="grid2">
-          ${inputs}
-          <div class="field" style="grid-column:1/-1">
-            <label>컬러차트 이미지 <span style="color:var(--muted);font-weight:400">(상세 '컬러 옵션' 탭에 사진으로 표시)</span></label>
-            <div style="display:flex;gap:12px;align-items:flex-start">
-              <img class="thumb-preview" id="ccPreview" alt="" onerror="this.removeAttribute('src')"${rec.color_chart ? ` src="${esc(rec.color_chart)}"` : ""}>
-              <div style="flex:1">
-                <input id="f_color_chart" type="text" placeholder="컬러차트 이미지 URL (또는 아래에서 업로드)" value="${esc(rec.color_chart || "")}">
-                <input id="ccFile" type="file" accept="image/*" style="margin-top:8px;font-size:12px">
-                <div class="err" id="ccErr"></div>
-              </div>
+
+        <div class="form-sec">이미지</div>
+        <div class="field">
+          <div style="display:flex;gap:12px;align-items:flex-start">
+            <img class="thumb-preview" id="imgPreview" alt="" onerror="this.removeAttribute('src')"${rec.image ? ` src="${esc(rec.image)}"` : ""}>
+            <div style="flex:1">
+              <input id="f_image" type="text" placeholder="이미지 URL (또는 아래에서 업로드)" value="${v('image')}">
+              <input id="imgFile" type="file" accept="image/*" style="margin-top:8px;font-size:12px">
+              <div class="err" id="upErr"></div>
             </div>
           </div>
+        </div>
+
+        <div class="form-sec">기본</div>
+        <div class="field"><label>상태</label><div class="pill-group" id="statusPills">${statusPills}</div><input type="hidden" id="f_status" value="${esc(curStatus)}"></div>
+        ${isNew ? "" : `<div class="field"><label>마스터 ID</label><div class="master-id"><b>#${String(rec.id).padStart(4, "0")}</b> <span>자동 부여 · 수정 불가</span></div></div>`}
+        <div class="field"><label>바로가기</label><div class="quick-links">
+          ${qlink("n", "N", "네이버", rec.store_url)}
+          ${qlink("c", "C", "쿠팡", rec.coupang_url)}
+          ${qlink("f", "F", "Flow", rec.flow_url)}
+          ${qlink("s", "구", "구매처", rec.source_url)}
+        </div></div>
+        <div class="grid2">
+          <div class="field" style="grid-column:1/-1"><label>제품명</label><input id="f_name" type="text" value="${v('name')}"></div>
+          <div class="field" style="grid-column:1/-1"><label>별칭 <span style="color:var(--muted);font-weight:400">내부 식별용</span></label><input id="f_alias" type="text" value="${v('alias')}" placeholder="예) 투톤_실리콘_베이직"></div>
+          <div class="field"><label>라인</label><input id="f_base_family" list="dl_base_family" value="${v('base_family')}" placeholder="선택 또는 입력" autocomplete="off"><datalist id="dl_base_family">${dl('base_family')}</datalist></div>
+          <div class="field"><label>색상 수</label><input id="f_color_count" type="number" min="0" value="${esc(rec.color_count ?? "")}" placeholder="예) 12"></div>
+          <div class="field"><label>공식판매가 <span style="color:var(--muted);font-weight:400">(원)</span></label><input id="f_price" type="number" min="0" value="${esc(rec.price ?? "")}" placeholder="예) 19900"></div>
+          <div class="field"><label>출시년월</label><input id="f_launch_year" type="month" min="2000-01" max="2099-12" value="${esc(lyVal)}"></div>
+        </div>
+
+        <div class="form-sec">스펙</div>
+        <div class="grid2">
+          <div class="field"><label>종류</label><input id="f_kind" list="dl_kind" value="${v('kind')}" placeholder="선택 또는 입력" autocomplete="off"><datalist id="dl_kind">${kindOpts}</datalist></div>
+          <div class="field"><label>기종</label><input id="f_model" list="dl_model" value="${v('model')}" placeholder="선택 또는 입력" autocomplete="off"><datalist id="dl_model">${dl('model')}</datalist></div>
+          <div class="field"><label>재질</label><input id="f_material" list="dl_material" value="${v('material')}" placeholder="선택 또는 입력" autocomplete="off"><datalist id="dl_material">${dl('material')}</datalist></div>
+          <div class="field"><label>규격</label><input id="f_size" list="dl_size" value="${v('size')}" placeholder="선택 또는 입력" autocomplete="off"><datalist id="dl_size">${dl('size')}</datalist></div>
+          <div class="field"><label>베이스규격</label><input id="f_base_size" list="dl_base_size" value="${v('base_size')}" placeholder="선택 또는 입력" autocomplete="off"><datalist id="dl_base_size">${dl('base_size')}</datalist></div>
+          <div class="field"><label>체결</label><input id="f_buckle" list="dl_buckle" value="${v('buckle')}" placeholder="선택 또는 입력" autocomplete="off"><datalist id="dl_buckle">${dl('buckle')}</datalist></div>
+          <div class="field"><label>형태 <span style="color:var(--muted);font-weight:400">(일자=일반형/아치=날개형)</span></label>
+            <select id="f_strap_shape">${["", "일반형", "날개형"].map((s) => `<option value="${s}"${(rec.strap_shape || "") === s ? " selected" : ""}>${s || "(미지정)"}</option>`).join("")}</select></div>
+        </div>
+        <div class="field"><label>스트랩 형태 <span style="color:var(--muted);font-weight:400">(호환 방식)</span></label>
+          <div class="shape-toggle" id="shapeToggle">
+            <div class="shape-opt${isUniversal ? " on" : ""}" data-conn="universal"><div class="st-title">커넥터 연결형</div><div class="st-sub">공용 스트랩 + 커넥터 결합</div></div>
+            <div class="shape-opt${isUniversal ? "" : " on"}" data-conn="dedicated"><div class="st-title">기종별 일체형</div><div class="st-sub">호환 기종 전용 러그 일체형</div></div>
+          </div>
+        </div>
+        <div class="field" id="connWrap" style="${isUniversal ? "display:none" : ""}"><label>호환 기종</label><input id="f_connector" list="dl_connector" value="${isUniversal ? "" : v('connector')}" placeholder="예) 갤럭시 워치(러그)" autocomplete="off"><datalist id="dl_connector">${dl('connector')}</datalist></div>
+
+        <div class="form-sec">판매 채널</div>
+        <div class="field"><label>네이버 링크</label><input id="f_store_url" type="url" value="${v('store_url')}" placeholder="https://smartstore.naver.com/..."></div>
+        <div class="field"><label>쿠팡 링크</label><input id="f_coupang_url" type="url" value="${v('coupang_url')}" placeholder="https://www.coupang.com/..."></div>
+
+        <div class="form-sec">콘텐츠</div>
+        <div class="field"><label>Flow 기획서</label><input id="f_flow_url" type="url" value="${v('flow_url')}" placeholder="https://flow.team/..."></div>
+
+        <div class="form-sec">소싱</div>
+        <div class="field"><label>구매 링크</label><input id="f_source_url" type="url" value="${v('source_url')}" placeholder="https://detail.1688.com/..."></div>
+        <div class="grid2">
+          <div class="field"><label>원가</label><div class="cost-row"><input id="f_cost_cny" type="number" min="0" step="0.01" value="${esc(rec.cost_cny ?? "")}" placeholder="0"><span class="unit">CNY</span></div></div>
+          <div class="field"><label>구매처</label><input id="f_vendor" type="text" value="${v('vendor')}" placeholder="예) WANLI INTERNATIONAL"></div>
+        </div>
+
+        <div class="form-sec">컬러차트</div>
+        <div class="field">
+          <div style="display:flex;gap:12px;align-items:flex-start">
+            <img class="thumb-preview" id="ccPreview" alt="" onerror="this.removeAttribute('src')"${rec.color_chart ? ` src="${esc(rec.color_chart)}"` : ""}>
+            <div style="flex:1">
+              <input id="f_color_chart" type="text" placeholder="컬러차트 이미지 URL (또는 아래 업로드)" value="${v('color_chart')}">
+              <input id="ccFile" type="file" accept="image/*" style="margin-top:8px;font-size:12px">
+              <div class="err" id="ccErr"></div>
+            </div>
+          </div>
+        </div>
+        <div class="field"><label>색상 <span style="color:var(--muted);font-weight:400">(쉼표로 구분)</span></label><input id="f_color" type="text" value="${v('color')}"></div>
+
+        <div class="form-sec">메모</div>
+        <div class="field"><textarea id="f_memo" placeholder="내부 메모를 입력하세요...">${v('memo')}</textarea></div>
+
+        <div class="grid2">
           <div class="field"><label>샘플링 날짜 <span style="color:var(--muted);font-weight:400">(월별 검색용)</span></label><input id="f_sampling_date" type="date" value="${esc(rec.sampling_date || "")}"></div>
           <div class="field"><label>정렬 순서(숫자)</label><input id="f_sort" type="number" value="${esc(rec.sort ?? "")}"></div>
         </div>
+
         <div class="err" id="saveErr"></div>
         <div class="modal-actions">
           <button class="btn ghost" id="cancelBtn">취소</button>
@@ -434,6 +479,16 @@
         </div>
       </div>`;
     document.body.appendChild(bg);
+    // 상태 pill 선택
+    bg.querySelectorAll("#statusPills .pill-opt").forEach((p) => p.addEventListener("click", () => {
+      bg.querySelectorAll("#statusPills .pill-opt").forEach((x) => x.classList.toggle("on", x === p));
+      document.getElementById("f_status").value = p.dataset.status;
+    }));
+    // 스트랩 형태 토글 (커넥터 연결형 / 기종별 일체형)
+    bg.querySelectorAll("#shapeToggle .shape-opt").forEach((o) => o.addEventListener("click", () => {
+      bg.querySelectorAll("#shapeToggle .shape-opt").forEach((x) => x.classList.toggle("on", x === o));
+      document.getElementById("connWrap").style.display = o.dataset.conn === "dedicated" ? "" : "none";
+    }));
     // 입력 변경 추적 → 바깥 클릭/취소 시 실수로 닫혀 내용 날아가는 것 방지
     let dirty = false;
     bg.querySelectorAll("input, select, textarea").forEach((el) =>
@@ -493,7 +548,18 @@
       obj.color_count = obj.color_count ? Number(obj.color_count) : null;
       obj.launch_year = obj.launch_year ? obj.launch_year : null;   // 텍스트 "YYYY-MM"
       obj.price = obj.price ? Number(obj.price) : null;
-      // 호환/기종에 '커넥터 연결형'(공용과 동의어)을 입력하면 내부 표준값 '공용(범용)'/'공용'으로 정규화 (그룹핑·필터 일관성)
+      // 새 필드(FIELDS 밖) 저장
+      ["alias", "kind", "flow_url", "source_url", "vendor", "memo"].forEach((col) => {
+        const el = document.getElementById("f_" + col); if (el) obj[col] = el.value.trim() || null;
+      });
+      const costEl = document.getElementById("f_cost_cny");
+      obj.cost_cny = costEl && costEl.value !== "" ? Number(costEl.value) : null;
+      // 커넥터: 스트랩 형태 토글 기준. 커넥터 연결형=공용(범용), 기종별 일체형=입력한 호환 기종
+      const sel = bg.querySelector("#shapeToggle .shape-opt.on");
+      const connType = sel ? sel.dataset.conn : "universal";
+      if (connType === "universal") obj.connector = "공용(범용)";
+      else { const ce = document.getElementById("f_connector"); obj.connector = ce && ce.value.trim() ? ce.value.trim() : (rec.connector || null); }
+      // '커넥터 연결형' 직접 입력 시에도 표준값으로 정규화
       if (/^커넥터\s*연결형$/.test((obj.connector || "").trim())) obj.connector = "공용(범용)";
       if (/^커넥터\s*연결형$/.test((obj.model || "").trim())) obj.model = "공용";
       const ccEl = document.getElementById("f_color_chart");
