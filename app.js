@@ -548,6 +548,9 @@ function buildView(rows) {
     paginationSizeSelector: [25, 50, 100, 200],
     movableColumns: true,
     placeholder: "조건에 맞는 상품이 없습니다.",
+    rowFormatter: (row) => {   // 리스트 뷰: 단종 제품 전체 흐릿 처리
+      row.getElement().classList.toggle("row-discont", statusKey(row.getData()) === "discont");
+    },
   });
 
   table.on("tableBuilt", () => {
@@ -840,8 +843,8 @@ function renderGallery() {
     const cc = colorCountOf(r);
     const price = colKeys.price ? String(r[colKeys.price] || "").trim() : "";
     const st = STATUS_DEF[statusKey(r)];
+    // 카드 뷰: 재질·규격·상태 생략(리스트 뷰에서만 표시), 단종도 동일 표시
     return `<div class="card" data-i="${i}">
-      ${st.cls !== "st-active" ? `<span class="card-status ${st.cls}">${st.label}</span>` : ""}
       <button class="card-fav${isFav(r) ? " on" : ""}" data-i="${i}" aria-label="즐겨찾기">★</button>
       ${img ? `<img class="thumb" src="${esc(img)}" loading="lazy" alt="">`
             : '<div class="thumb"></div>'}
@@ -852,7 +855,6 @@ function renderGallery() {
           ${model ? `<span class="cchip primary">${esc(connUniversalLabel(model))}</span>` : ""}
         </div>
         <div class="card-foot">
-          ${size ? `<span class="size-badge">${esc(size)}</span>` : ""}
           ${cc ? `<span class="cc-badge">${cc}색상</span>` : ""}
           ${price ? `<span class="card-price">${esc(won(price))}</span>` : ""}
         </div>
