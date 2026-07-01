@@ -878,8 +878,10 @@ function renderGallery() {
     const devTag = universal
       ? `<span class="ctag t-common">↔ 공용${size ? ` ${esc(size)}` : ""}</span>`
       : `<span class="ctag t-device">⌚ ${esc(model || connVal)}</span>`;
-    // ⑤ 스트랩 형태 태그
-    const shapeTag = universal
+    // ⑤ 스트랩 형태 태그: 전용 컬럼(스트랩형태) 우선, 없으면 공용여부로 판단
+    const stField = String(r["스트랩형태"] || "").trim();
+    const isConn = stField ? /연결/.test(stField) : universal;
+    const shapeTag = isConn
       ? `<span class="stag si-conn">⚡ 연결형</span>`
       : `<span class="stag si-intg">⌚ 일체형</span>`;
     // ⑥ 바로가기: N 네이버 / C 쿠팡 / F 플로우 / B 1688
@@ -1125,7 +1127,7 @@ function openDetail(r) {
     let val = r[h];
     if (h === colKeys.price) val = won(val);
     else if (h === colKeys.stock) { const c = stockClass(val); val = c === "out" ? "품절 (0)" : (val ? `${val}개` : "-"); }
-    else if (connFacet && h === connFacet.key) val = esc(connectorLabel(val));  // 공용(범용)→커넥터 연결형, 전용→기종별 일체형
+    else if (connFacet && h === connFacet.key) { const stF = String(r["스트랩형태"] || "").trim(); val = esc(stF || connectorLabel(val)); }  // 스트랩형태 우선
     else if (mf && h === mf.key) val = esc(connUniversalLabel(val));  // 기종 '공용'→커넥터 연결형
     else val = esc(val);
     return `<div class="attr"><div class="k">${esc(h)}</div><div class="v">${val || "-"}</div></div>`;

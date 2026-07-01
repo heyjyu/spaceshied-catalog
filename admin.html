@@ -10,7 +10,7 @@
   <title>관리자 — 상품 관리</title>
   <!-- 테마: 모바일(≤860px) 라이트 고정, 데스크톱은 저장값(모든 페이지 동일 로직) -->
   <script>document.documentElement.dataset.theme = window.matchMedia("(max-width: 860px)").matches ? "light" : (localStorage.getItem("theme") || "light");</script>
-  <link rel="stylesheet" href="styles.css?v=71" />
+  <link rel="stylesheet" href="styles.css?v=72" />
   <style>
     .admin-wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
     .admin-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
@@ -426,8 +426,9 @@
     const mapStatus = (s) => /단종/.test(s) ? "단종" : (/소싱|샘플|기획|계획/.test(s) ? "소싱" : "판매");
     const curStatus = mapStatus(rec.status || "판매");
     const statusPills = STATUS_OPTS.map((s) => `<button type="button" class="pill-opt${curStatus === s ? " on" : ""}" data-status="${s}">${s}</button>`).join("");
-    // 커넥터 타입(스트랩 형태): 공용/범용 = 커넥터 연결형
-    const isUniversal = !rec.connector || /공용|공통|범용/.test(String(rec.connector || ""));
+    // 스트랩 형태: 전용 컬럼(strap_type) 우선, 없으면 커넥터 공용여부
+    const isUniversal = rec.strap_type ? /연결/.test(rec.strap_type)
+      : (!rec.connector || /공용|공통|범용/.test(String(rec.connector || "")));
     // 종류 datalist(기본 + 기존값)
     const kindOpts = [...new Set(["스마트 워치", "스마트 밴드", "골프거리계", "기타", ...distinctVals("kind")])].map((x) => `<option value="${esc(x)}">`).join("");
     // 바로가기 chip
@@ -610,6 +611,7 @@
       // 커넥터: 스트랩 형태 토글 기준. 커넥터 연결형=공용(범용), 기종별 일체형=입력한 호환 기종
       const sel = bg.querySelector("#shapeToggle .shape-opt.on");
       const connType = sel ? sel.dataset.conn : "universal";
+      obj.strap_type = connType === "universal" ? "커넥터 연결형" : "기종별 일체형";  // 카드·상세 표시 기준
       if (connType === "universal") obj.connector = "공용(범용)";
       else { const ce = document.getElementById("f_connector"); obj.connector = ce && ce.value.trim() ? ce.value.trim() : (rec.connector || null); }
       // '커넥터 연결형' 직접 입력 시에도 표준값으로 정규화
