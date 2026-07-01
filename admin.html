@@ -10,7 +10,7 @@
   <title>관리자 — 상품 관리</title>
   <!-- 테마: 모바일(≤860px) 라이트 고정, 데스크톱은 저장값(모든 페이지 동일 로직) -->
   <script>document.documentElement.dataset.theme = window.matchMedia("(max-width: 860px)").matches ? "light" : (localStorage.getItem("theme") || "light");</script>
-  <link rel="stylesheet" href="styles.css?v=58" />
+  <link rel="stylesheet" href="styles.css?v=59" />
   <style>
     .admin-wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
     .admin-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
@@ -125,6 +125,22 @@
       font-size: 11px; font-weight: 800; color: #fff; }
     .qi.n { background: #03c75a; } .qi.c { background: #ee2b2b; } .qi.f { background: #4b5bdc; } .qi.s { background: #e79a2b; }
     .qlink:hover { border-color: var(--brand); }
+    /* 활성(링크 있음) 칩: 채널 색으로 채움 */
+    .qlink.n { background: #e4f7ec; border-color: #a7e5c3; color: #0b7a3e; }
+    .qlink.c { background: #fdeceb; border-color: #f4b9b5; color: #c02620; }
+    .qlink.f { background: #ece9fb; border-color: #c3b9f2; color: #4b3fbf; }
+    .qlink.s { background: #fdf2df; border-color: #efd39a; color: #a9700a; }
+    [data-theme="dark"] .qlink.n { background: #123020; border-color:#1f5236; color:#5fd98c; }
+    [data-theme="dark"] .qlink.c { background: #3a1715; border-color:#5e2420; color:#f2938c; }
+    [data-theme="dark"] .qlink.f { background: #241e42; border-color:#3b3170; color:#b3a6f7; }
+    [data-theme="dark"] .qlink.s { background: #33280d; border-color:#5a4715; color:#e6b53d; }
+    /* 링크 입력칸 아이콘 배지 프리픽스 */
+    .link-row { display: flex; align-items: stretch; gap: 8px; }
+    .link-row input { flex: 1; }
+    .link-ico { flex: none; width: 46px; border-radius: 12px; display: inline-flex; align-items: center; justify-content: center;
+      font-size: 12px; font-weight: 800; color: #fff; }
+    .link-ico.n { background: #03c75a; } .link-ico.c { background: #ee2b2b; }
+    .link-ico.f { background: #4b5bdc; } .link-ico.b { background: #e79a2b; }
     /* 스트랩 형태 toggle */
     .shape-toggle { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
     .shape-opt { text-align: center; padding: 14px 10px; border: 1px solid var(--border); border-radius: 14px; cursor: pointer;
@@ -371,8 +387,10 @@
     const lyM = lyRaw.match(/^(\d{4})\D*(\d{1,2})/);
     const lyVal = lyM ? `${lyM[1]}-${lyM[2].padStart(2, "0")}` : (lyRaw.match(/^\d{4}$/) ? lyRaw : "");
     // 상태 pill
-    const STATUS_OPTS = ["진행", "기획", "샘플", "일부", "단종"];
-    const curStatus = rec.status || "진행";
+    const STATUS_OPTS = ["판매", "소싱", "단종"];
+    // 기존 데이터(진행/기획/샘플/일부) → 3종 매핑
+    const mapStatus = (s) => /단종/.test(s) ? "단종" : (/소싱|샘플|기획|계획/.test(s) ? "소싱" : "판매");
+    const curStatus = mapStatus(rec.status || "판매");
     const statusPills = STATUS_OPTS.map((s) => `<button type="button" class="pill-opt${curStatus === s ? " on" : ""}" data-status="${s}">${s}</button>`).join("");
     // 커넥터 타입(스트랩 형태): 공용/범용 = 커넥터 연결형
     const isUniversal = !rec.connector || /공용|공통|범용/.test(String(rec.connector || ""));
@@ -380,7 +398,7 @@
     const kindOpts = [...new Set(["스마트 워치", "스마트 밴드", "골프거리계", "기타", ...distinctVals("kind")])].map((x) => `<option value="${esc(x)}">`).join("");
     // 바로가기 chip
     const qlink = (cls, icon, label, url) => { const u = String(url || "").trim();
-      return `<a class="qlink" ${u ? `href="${esc(u)}" target="_blank" rel="noopener"` : 'aria-disabled="true"'}><span class="qi ${cls}">${icon}</span>${label}</a>`; };
+      return `<a class="qlink${u ? " " + cls : ""}" ${u ? `href="${esc(u)}" target="_blank" rel="noopener"` : 'aria-disabled="true"'}><span class="qi ${cls}">${icon}</span>${label}</a>`; };
 
     const bg = document.createElement("div");
     bg.className = "modal-bg";
@@ -438,14 +456,14 @@
         <div class="field" id="connWrap" style="${isUniversal ? "display:none" : ""}"><label>호환 기종</label><input id="f_connector" list="dl_connector" value="${isUniversal ? "" : v('connector')}" placeholder="예) 갤럭시 워치(러그)" autocomplete="off"><datalist id="dl_connector">${dl('connector')}</datalist></div>
 
         <div class="form-sec">판매 채널</div>
-        <div class="field"><label>네이버 링크</label><input id="f_store_url" type="url" value="${v('store_url')}" placeholder="https://smartstore.naver.com/..."></div>
-        <div class="field"><label>쿠팡 링크</label><input id="f_coupang_url" type="url" value="${v('coupang_url')}" placeholder="https://www.coupang.com/..."></div>
+        <div class="field"><label>네이버 링크</label><div class="link-row"><span class="link-ico n">N</span><input id="f_store_url" type="url" value="${v('store_url')}" placeholder="https://smartstore.naver.com/..."></div></div>
+        <div class="field"><label>쿠팡 링크</label><div class="link-row"><span class="link-ico c">C</span><input id="f_coupang_url" type="url" value="${v('coupang_url')}" placeholder="https://www.coupang.com/..."></div></div>
 
         <div class="form-sec">콘텐츠</div>
-        <div class="field"><label>Flow 기획서</label><input id="f_flow_url" type="url" value="${v('flow_url')}" placeholder="https://flow.team/..."></div>
+        <div class="field"><label>Flow 기획서</label><div class="link-row"><span class="link-ico f">F</span><input id="f_flow_url" type="url" value="${v('flow_url')}" placeholder="https://flow.team/..."></div></div>
 
         <div class="form-sec">소싱</div>
-        <div class="field"><label>구매 링크</label><input id="f_source_url" type="url" value="${v('source_url')}" placeholder="https://detail.1688.com/..."></div>
+        <div class="field"><label>구매 링크</label><div class="link-row"><span class="link-ico b">1688</span><input id="f_source_url" type="url" value="${v('source_url')}" placeholder="https://detail.1688.com/..."></div></div>
         <div class="grid2">
           <div class="field"><label>원가</label><div class="cost-row"><input id="f_cost_cny" type="number" min="0" step="0.01" value="${esc(rec.cost_cny ?? "")}" placeholder="0"><span class="unit">CNY</span></div></div>
           <div class="field"><label>구매처</label><input id="f_vendor" type="text" value="${v('vendor')}" placeholder="예) WANLI INTERNATIONAL"></div>

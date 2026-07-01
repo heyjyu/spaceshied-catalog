@@ -17,22 +17,18 @@ let columnCfg = {};      // 표 컬럼 설정(Supabase column_config): {헤더:{
 // 현재 필터 상태
 const filterState = { search: "", facets: {}, stock: "", favOnly: false, category: "", lifecycle: "", sort: "" };
 
-// 상품 상태 5종 (런칭 매트릭스와 동일 정의/색). active=진행/출시
+// 상품 상태 3종: 판매 → 소싱 → 단종. (기존 진행/기획/샘플/일부 데이터도 자동 매핑)
 const STATUS_DEF = {
-  active:   { label: "출시", cls: "st-active" },
-  planned:  { label: "기획", cls: "st-planned" },
-  partial:  { label: "일부", cls: "st-partial" },
-  sampling: { label: "샘플", cls: "st-sampling" },
+  active:   { label: "판매", cls: "st-active" },
+  sampling: { label: "소싱", cls: "st-sampling" },
   discont:  { label: "단종", cls: "st-discont" },
 };
-const STATUS_ORDER = ["active", "planned", "partial", "sampling", "discont"];
+const STATUS_ORDER = ["active", "sampling", "discont"];
 function statusKey(r) {
   const s = String(r["상태"] || "").trim();
   if (/단종|disc/i.test(s)) return "discont";
-  if (/기획|계획|plan/i.test(s)) return "planned";
-  if (/샘플|sampl/i.test(s)) return "sampling";
-  if (/일부|부분|partial/i.test(s)) return "partial";
-  return "active"; // 진행/출시/빈값
+  if (/소싱|샘플|기획|계획|sourc|sampl|plan/i.test(s)) return "sampling";
+  return "active"; // 판매/진행/출시/일부/빈값
 }
 
 const $ = (id) => document.getElementById(id);
