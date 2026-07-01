@@ -515,6 +515,9 @@ function buildColumns(headers) {
       };
     } else if (h === connKey || h === modelKey2) {
       col.formatter = (cell) => esc(connUniversalLabel(cell.getValue()));
+    } else if (h === "원가(CNY)") {
+      col.hozAlign = "right"; col.sorter = "number";
+      col.formatter = (cell) => { const val = cell.getValue(); return val !== "" && val != null ? `¥${esc(String(val))}` : "-"; };
     } else if (h === "출시년월") {
       col.formatter = (cell) => esc(formatYM(cell.getValue()));
     } else if (h === colKeys.price) {
@@ -1059,7 +1062,7 @@ function openDetail(r) {
 
   // ① 기본정보 속성 (이미지/이름/링크/색상/숨김 컬럼 제외 — 색상은 별도 탭)
   const connFacet = facetCols.find((f) => f.label === "호환");
-  const skip = new Set([colKeys.image, colKeys.name, colKeys.link, colKeys.price, "출시년월",
+  const skip = new Set([colKeys.image, colKeys.name, colKeys.link, colKeys.price, "출시년월", "원가(CNY)",
     (colorFacet && colorFacet.key), ...(CONFIG.HIDE_COLUMNS || [])].filter(Boolean));
   const attrs = headersAll.filter((h) => !skip.has(h)).map((h) => {
     let val = r[h];
