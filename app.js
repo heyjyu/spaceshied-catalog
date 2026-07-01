@@ -874,10 +874,11 @@ function renderGallery() {
     const connFacet = facetCols.find((f) => f.label === "호환");
     const connVal = connFacet ? String(r[connFacet.key] || "").trim() : "";
     const universal = !connVal || /공용|공통|범용/.test(connVal);
-    // ③ 기종 태그: 특정 기종=청록, 공용=회색+규격mm
-    const devTag = universal
+    // ③ 기종 태그: 기종(model) 값 기준. 특정 기종=청록(⌚ 모델명), 공용/빈값=회색(↔ 공용 mm)
+    const modelUniversal = !model || /공용|공통|범용/.test(model);
+    const devTag = modelUniversal
       ? `<span class="ctag t-common">↔ 공용${size ? ` ${esc(size)}` : ""}</span>`
-      : `<span class="ctag t-device">⌚ ${esc(model || connVal)}</span>`;
+      : `<span class="ctag t-device">⌚ ${esc(model)}</span>`;
     // ⑤ 스트랩 형태 태그: 전용 컬럼(스트랩형태) 우선, 없으면 공용여부로 판단
     const stField = String(r["스트랩형태"] || "").trim();
     const isConn = stField ? /연결/.test(stField) : universal;
