@@ -488,12 +488,18 @@ main { padding: 18px 24px 48px; max-width: 1400px; margin: 0 auto; }
 .attr .v { font-weight: 500; word-break: break-word; }
 .attr .v a { color: var(--brand); text-decoration: none; word-break: break-all; }
 .store-btn {
-  display: block; text-align: center; margin-top: 18px;
-  padding: 13px; border-radius: var(--radius-sm);
-  background: #03c75a; color: #fff; font-weight: 700; text-decoration: none;
-  transition: filter .15s;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px; margin-top: 18px;
+  padding: 12px 18px; border-radius: 12px; border: 1px solid transparent;
+  font-weight: 700; font-size: 14px; text-decoration: none;
+  transition: background .12s, border-color .12s;
 }
-.store-btn:hover { filter: brightness(.96); }
+.store-btn .sb-arrow { font-size: 12px; opacity: .75; }
+.store-btn.naver   { background: #e4f7ec; color: #0b7a3e; border-color: #a7e5c3; }
+.store-btn.coupang { background: #fdeceb; color: #c02620; border-color: #f4b9b5; }
+.store-btn.naver:hover   { background: #d4efdf; border-color: #7fd6a6; }
+.store-btn.coupang:hover { background: #fbe0de; border-color: #ef9d97; }
+[data-theme="dark"] .store-btn.naver   { background: #123020; color: #5fd98c; border-color: #1f5236; }
+[data-theme="dark"] .store-btn.coupang { background: #3a1715; color: #f2938c; border-color: #5e2420; }
 
 /* ---------- 비슷한 제품 ---------- */
 .similar-wrap { margin-top: 24px; border-top: 1px solid var(--border-soft); padding-top: 18px; }

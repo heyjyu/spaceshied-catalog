@@ -1203,8 +1203,8 @@ function openDetail(r) {
         <div class="dpane" data-pane="info"><div class="attrs">${attrs}</div>
           ${coupangUrl && coupangStock !== "" ? `<div class="attr"><div class="k">쿠팡 재고</div><div class="v">${esc(coupangStock)}개${coupangSynced ? ` <span style="color:var(--muted);font-size:12px">(${esc(coupangSynced)} 기준)</span>` : ""}</div></div>` : ""}
           <div style="display:flex;flex-wrap:wrap;gap:8px">
-            ${link ? `<a class="store-btn" href="${esc(link)}" target="_blank" rel="noopener">네이버 스토어에서 보기 ↗</a>` : ""}
-            ${coupangUrl ? `<a class="store-btn" style="background:#ee2b2b" href="${esc(coupangUrl)}" target="_blank" rel="noopener">쿠팡에서 보기 ↗</a>` : ""}
+            ${link ? `<a class="store-btn naver" href="${esc(link)}" target="_blank" rel="noopener">네이버 스토어에서 보기 <span class="sb-arrow">↗</span></a>` : ""}
+            ${coupangUrl ? `<a class="store-btn coupang" href="${esc(coupangUrl)}" target="_blank" rel="noopener">쿠팡에서 보기 <span class="sb-arrow">↗</span></a>` : ""}
           </div></div>
         <div class="dpane hidden" data-pane="color">${colorPane}</div>
         <div class="dpane hidden" data-pane="similar">${simPane}</div>
