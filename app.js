@@ -418,6 +418,16 @@ function buildSuggestIndex(rows) {
   });
 }
 
+// 공백·대소문자 무시 정규화 키 (띄어쓰기 다른 같은 값 병합용): "갤럭시 워치8" == "갤럭시 워치 8"
+function normKey(s) { return String(s == null ? "" : s).replace(/\s+/g, "").toLowerCase(); }
+// facet 라벨 → {정규화키: 표준표기} (VOCAB 기준값 우선 표시)
+function vocabCanon(label) {
+  const list = (CONFIG.VOCAB && CONFIG.VOCAB[label]) || [];
+  const m = {};
+  list.forEach((v) => { m[normKey(v)] = v; });
+  return m;
+}
+
 function buildFacetDropdowns(rows) {
   const wrap = $("filters");
   // 기존 facet select 제거 (stockFilter / btnClear 는 유지)
@@ -427,10 +437,15 @@ function buildFacetDropdowns(rows) {
     const sel = document.createElement("select");
     sel.className = "filter facet-select";
     sel.dataset.key = f.key;
-    // 한 셀에 여러 값이면 쪼개서 각각을 옵션으로 (derive 적용)
-    const set = new Set();
-    rows.forEach((r) => facetValues(r, f).forEach((v) => set.add(v)));
-    let vals = [...set];
+    // 한 셀에 여러 값이면 쪼개서 각각을 옵션으로 (derive 적용).
+    // 공백 차이로 갈라진 값은 하나로 병합(VOCAB 표준표기 우선).
+    const canon = vocabCanon(f.label);
+    const groups = new Map();  // 정규화키 → 표시값
+    rows.forEach((r) => facetValues(r, f).forEach((v) => {
+      const k = normKey(v);
+      if (!groups.has(k)) groups.set(k, canon[k] || v);
+    }));
+    let vals = [...groups.values()];
     if (f.derive === "mm") vals.sort((a, b) => parseInt(a) - parseInt(b));
     else if (f.derive === "color") vals.sort((a, b) => colorOrder(a) - colorOrder(b));
     else vals.sort((a, b) => a.localeCompare(b, "ko"));
@@ -580,7 +595,7 @@ function matchRow(data) {
   }
   for (const f of facetCols) {
     const val = filterState.facets[f.key];
-    if (val && !facetValues(data, f).includes(val)) return false;
+    if (val && !facetValues(data, f).some((v) => normKey(v) === normKey(val))) return false;
   }
   if (filterState.stock && colKeys.stock) {
     if (stockClass(data[colKeys.stock]) !== filterState.stock) return false;

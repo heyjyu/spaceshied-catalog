@@ -10,7 +10,7 @@
   <title>관리자 — 상품 관리</title>
   <!-- 테마: 모바일(≤860px) 라이트 고정, 데스크톱은 저장값(모든 페이지 동일 로직) -->
   <script>document.documentElement.dataset.theme = window.matchMedia("(max-width: 860px)").matches ? "light" : (localStorage.getItem("theme") || "light");</script>
-  <link rel="stylesheet" href="styles.css?v=59" />
+  <link rel="stylesheet" href="styles.css?v=60" />
   <style>
     .admin-wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
     .admin-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
@@ -381,7 +381,14 @@
     const isNew = !rec;
     rec = rec || {};
     const v = (k) => esc(rec[k] ?? "");
-    const dl = (col) => distinctVals(col).map((x) => `<option value="${esc(x)}">`).join("");
+    // 컬럼 → 표준 어휘집(VOCAB) 키 매핑. 표준값을 드롭다운 앞에 붙이고 기존 DB값과 합침(중복 제거)
+    const VOCAB = (CONFIG && CONFIG.VOCAB) || {};
+    const VKEY = { model: "기종", material: "재질", buckle: "체결", size: "규격", base_size: "규격", base_family: "라인", kind: "종류" };
+    const dl = (col) => {
+      const std = VOCAB[VKEY[col]] || [];
+      const merged = [...new Set([...std, ...distinctVals(col)])];
+      return merged.map((x) => `<option value="${esc(x)}">`).join("");
+    };
     // 출시년월 정규화(YYYY-MM)
     const lyRaw = String(rec.launch_year ?? "").trim();
     const lyM = lyRaw.match(/^(\d{4})\D*(\d{1,2})/);
