@@ -109,6 +109,38 @@ function connUniversalLabel(v) {
   return /공용|공통|범용|universal/i.test(s) ? "커넥터 연결형" : s;
 }
 
+// 간단 토스트
+function showToast(msg) {
+  let t = document.getElementById("__toast");
+  if (!t) { t = document.createElement("div"); t.id = "__toast"; t.className = "toast"; document.body.appendChild(t); }
+  t.textContent = msg;
+  t.classList.add("show");
+  clearTimeout(showToast._t);
+  showToast._t = setTimeout(() => t.classList.remove("show"), 2000);
+}
+
+// 이미지를 클립보드에 복사(붙여넣기 가능). jpg 등은 PNG로 변환(클립보드는 주로 image/png만 허용).
+async function copyImageToClipboard(url) {
+  const toPng = async () => {
+    const resp = await fetch(url, { mode: "cors" });
+    const blob = await resp.blob();
+    if (blob.type === "image/png") return blob;
+    const bmp = await createImageBitmap(blob);
+    const c = document.createElement("canvas");
+    c.width = bmp.width; c.height = bmp.height;
+    c.getContext("2d").drawImage(bmp, 0, 0);
+    return await new Promise((res) => c.toBlob(res, "image/png"));
+  };
+  try {
+    if (!navigator.clipboard || !window.ClipboardItem) throw new Error("no clipboard");
+    await navigator.clipboard.write([new ClipboardItem({ "image/png": toPng() })]);
+    showToast("이미지 복사됨 — 붙여넣기(⌘/Ctrl+V) 하세요");
+  } catch (e) {
+    try { await navigator.clipboard.writeText(url); showToast("이미지 주소 복사됨 (이 브라우저는 이미지 직접 복사 미지원)"); }
+    catch (_) { showToast("복사 실패: " + (e.message || e)); }
+  }
+}
+
 function won(v) {
   const n = Number(String(v).replace(/[^0-9.-]/g, ""));
   if (!isFinite(n) || String(v).trim() === "") return v ?? "";
@@ -1089,7 +1121,7 @@ function openDetail(r) {
     </div>
     <div class="detail-main">
       <div class="detail-imgcol">
-        ${img ? `<img class="detail-img" src="${esc(img)}" alt="">` : '<div class="detail-img placeholder"></div>'}
+        ${img ? `<img class="detail-img" src="${esc(img)}" alt="" title="클릭하면 이미지 복사" style="cursor:copy">` : '<div class="detail-img placeholder"></div>'}
         <button class="detail-fav2${isFav(r) ? " on" : ""}" id="btnDetailFav">★ 즐겨찾기</button>
       </div>
       <div class="detail-infocol">
@@ -1125,6 +1157,8 @@ function openDetail(r) {
       const col = detail.querySelector(".detail-infocol"); if (col) col.scrollTop = 0;
     });
   });
+  const dimg = detail.querySelector(".detail-img");
+  if (dimg && img) dimg.addEventListener("click", () => copyImageToClipboard(img));
   $("btnCloseDetail").addEventListener("click", closeDetail);
   $("btnDetailFav").addEventListener("click", (e) => e.currentTarget.classList.toggle("on", toggleFav(r)));
   detail.querySelectorAll(".sim-card").forEach((el) => el.addEventListener("click", () => openDetail(reco[Number(el.dataset.ri)])));

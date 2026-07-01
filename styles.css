@@ -428,6 +428,11 @@ main { padding: 18px 24px 48px; max-width: 1400px; margin: 0 auto; }
 .detail-fav2.on { color: #f5b301; border-color: #f5b301; }
 .detail-infocol { flex: 1; padding: 22px 24px; overflow-y: auto; }
 .color-chart { width: 100%; height: auto; border-radius: 12px; border: 1px solid var(--border-soft); margin-bottom: 14px; display: block; }
+/* 토스트 */
+.toast { position: fixed; left: 50%; bottom: 32px; transform: translate(-50%, 20px);
+  background: rgba(20,20,22,.94); color: #fff; padding: 12px 20px; border-radius: 12px; font-size: 14px; font-weight: 600;
+  z-index: 200; opacity: 0; pointer-events: none; transition: opacity .18s, transform .18s; box-shadow: 0 6px 24px rgba(0,0,0,.3); max-width: 90vw; text-align: center; }
+.toast.show { opacity: 1; transform: translate(-50%, 0); }
 .detail-eyebrow { color: var(--brand); font-size: 12px; font-weight: 700; margin-bottom: 4px; }
 .detail-chips { display: flex; gap: 6px; flex-wrap: wrap; margin: 12px 0 18px; }
 .dchip { font-size: 12px; font-weight: 600; padding: 4px 10px; border-radius: 8px;
