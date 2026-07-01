@@ -1166,7 +1166,10 @@ function openDetail(r) {
     </div>
     <div class="detail-main">
       <div class="detail-imgcol">
-        ${img ? `<img class="detail-img" src="${esc(img)}" alt="" title="클릭하면 이미지 복사" style="cursor:copy">` : '<div class="detail-img placeholder"></div>'}
+        ${img ? `<div class="detail-imgwrap" title="클릭하면 이미지 복사">
+          <img class="detail-img" src="${esc(img)}" alt="">
+          <div class="detail-copyhint"><span>📋 클릭하면 이미지 복사</span></div>
+        </div>` : '<div class="detail-img placeholder"></div>'}
         <button class="detail-fav2${isFav(r) ? " on" : ""}" id="btnDetailFav">★ 즐겨찾기</button>
       </div>
       <div class="detail-infocol">
@@ -1201,7 +1204,7 @@ function openDetail(r) {
       const col = detail.querySelector(".detail-infocol"); if (col) col.scrollTop = 0;
     });
   });
-  const dimg = detail.querySelector(".detail-img");
+  const dimg = detail.querySelector(".detail-imgwrap");
   if (dimg && img) dimg.addEventListener("click", () => copyImageToClipboard(img));
   $("btnCloseDetail").addEventListener("click", closeDetail);
   $("btnDetailFav").addEventListener("click", (e) => e.currentTarget.classList.toggle("on", toggleFav(r)));

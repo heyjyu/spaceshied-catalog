@@ -461,6 +461,18 @@ main { padding: 18px 24px 48px; max-width: 1400px; margin: 0 auto; }
   border-radius: var(--radius); border: 1px solid var(--border-soft); background: var(--panel-2);
 }
 .detail-img.placeholder { display: block; }
+/* 대표 이미지 복사 힌트(호버 오버레이) */
+.detail-imgwrap { position: relative; cursor: copy; border-radius: var(--radius); overflow: hidden; }
+.detail-imgwrap .detail-img { display: block; border-radius: 0; }
+.detail-copyhint {
+  position: absolute; inset: 0; display: flex; align-items: center; justify-content: center;
+  background: rgba(0,0,0,.4); opacity: 0; transition: opacity .15s;
+}
+.detail-imgwrap:hover .detail-copyhint { opacity: 1; }
+.detail-copyhint span {
+  background: rgba(20,20,22,.82); color: #fff; font-size: 13.5px; font-weight: 700;
+  padding: 9px 16px; border-radius: 999px; -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);
+}
 .detail-title { font-size: 20px; margin: 16px 0 10px; letter-spacing: -0.02em; line-height: 1.3; }
 .detail-headline { display: flex; align-items: baseline; gap: 12px; flex-wrap: wrap; margin: 0 0 12px; }
 .detail-price { font-size: 22px; font-weight: 800; color: var(--text); letter-spacing: -0.02em; }
