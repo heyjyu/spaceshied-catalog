@@ -842,24 +842,42 @@ function renderGallery() {
     const tf = facetCols.find((f) => f.label === "재질");
     const model = mf ? String(r[mf.key] || "").trim() : "";
     const material = tf ? String(r[tf.key] || "").trim() : "";
-    const size = sizeFacet ? (firstMm(r[sizeFacet.key]) || firstMm(rowTitle(r))) : "";
+    const size = firstMm(r["규격"]) || firstMm(r["베이스규격"]) || (sizeFacet && firstMm(r[sizeFacet.key])) || firstMm(rowTitle(r)) || "";
     const cc = colorCountOf(r);
     const price = colKeys.price ? String(r[colKeys.price] || "").trim() : "";
-    const st = STATUS_DEF[statusKey(r)];
-    // 카드 뷰: 재질·규격·상태 생략(리스트 뷰에서만 표시), 단종도 동일 표시
+    // 호환(커넥터) 기준: 공용/범용 = 연결형, 그 외 = 기종별 일체형
+    const connFacet = facetCols.find((f) => f.label === "호환");
+    const connVal = connFacet ? String(r[connFacet.key] || "").trim() : "";
+    const universal = !connVal || /공용|공통|범용/.test(connVal);
+    // ③ 기종 태그: 특정 기종=청록, 공용=회색+규격mm
+    const devTag = universal
+      ? `<span class="ctag t-common">↔ 공용${size ? ` ${esc(size)}` : ""}</span>`
+      : `<span class="ctag t-device">⌚ ${esc(model || connVal)}</span>`;
+    // ⑤ 스트랩 형태 태그
+    const shapeTag = universal
+      ? `<span class="stag si-conn">⚡ 연결형</span>`
+      : `<span class="stag si-intg">⌚ 일체형</span>`;
+    // ⑥ 바로가기: N 네이버 / C 쿠팡 / F 플로우 / B 1688
+    const naver = String(r["네이버스토어"] || "").trim();
+    const coupang = String(r["쿠팡링크"] || "").trim();
+    const flow = String(r["플로우링크"] || "").trim();
+    const src = String(r["구매링크"] || "").trim();
+    const qb = (cls, ch, url) => `<a class="qb ${cls}${url ? "" : " off"}" ${url ? `href="${esc(url)}" target="_blank" rel="noopener"` : 'aria-disabled="true"'} onclick="event.stopPropagation()">${ch}</a>`;
     return `<div class="card" data-i="${i}">
       <button class="card-fav${isFav(r) ? " on" : ""}" data-i="${i}" aria-label="즐겨찾기">★</button>
       ${img ? `<img class="thumb" src="${esc(img)}" loading="lazy" alt="">`
             : '<div class="thumb"></div>'}
       <div class="body">
+        <div class="card-chips">${devTag}</div>
         <div class="name">${esc(rowTitle(r))}</div>
-        ${r["출시년월"] ? `<div class="card-year">${esc(formatYM(r["출시년월"]))}</div>` : ""}
-        <div class="card-chips">
-          ${model ? `<span class="cchip primary">${esc(connUniversalLabel(model))}</span>` : ""}
-        </div>
         <div class="card-foot">
-          ${cc ? `<span class="cc-badge">${cc}색상</span>` : ""}
+          ${shapeTag}
+          ${cc ? `<span class="cc-badge">🎨 ${cc}</span>` : ""}
           ${price ? `<span class="card-price">${esc(won(price))}</span>` : ""}
+        </div>
+        <div class="qbar">
+          ${qb("qn", "N", naver)}${qb("qc", "C", coupang)}${qb("qf", "F", flow)}${qb("qb2", "B", src)}
+          <button class="qb qpal" data-i="${i}" title="색상 목록 복사" onclick="event.stopPropagation()">🎨</button>
         </div>
       </div>
     </div>`;
@@ -870,6 +888,18 @@ function renderGallery() {
       e.stopPropagation();
       const r = rows[Number(el.dataset.i)];
       el.classList.toggle("on", toggleFav(r));
+    });
+  });
+  // 🎨 색상 목록 복사(중국 발주용) — 색상목록 데이터 없으면 색상명 복사
+  const colorFacet = facetCols.find((f) => f.derive === "color");
+  g.querySelectorAll(".qpal").forEach((el) => {
+    el.addEventListener("click", (e) => {
+      e.stopPropagation();
+      const r = rows[Number(el.dataset.i)];
+      const colors = colorFacet ? String(r[colorFacet.key] || "").trim() : "";
+      if (!colors) { showToast("등록된 색상이 없습니다"); return; }
+      try { navigator.clipboard.writeText(colors); showToast("색상 목록 복사됨: " + colors); }
+      catch (_) { showToast(colors); }
     });
   });
   // 카드 클릭 → 상세

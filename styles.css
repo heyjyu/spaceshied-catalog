@@ -641,8 +641,8 @@ main { padding: 18px 24px 48px; max-width: 1400px; margin: 0 auto; }
   color: #c2c6cc; font-size: 15px; line-height: 30px; text-align: center; cursor: pointer;
   box-shadow: var(--shadow-sm); transition: color .12s, transform .12s; padding: 0;
 }
-.card-fav:hover { transform: scale(1.12); color: #f5b301; }
-.card-fav.on { color: #f5b301; }
+.card-fav:hover { transform: scale(1.12); color: #BA7517; }
+.card-fav.on { color: #BA7517; }
 .detail-head-actions { display: flex; align-items: center; gap: 8px; }
 .detail-fav {
   border: 1px solid var(--border); background: transparent; border-radius: var(--radius-sm);
@@ -682,6 +682,32 @@ main { padding: 18px 24px 48px; max-width: 1400px; margin: 0 auto; }
 .cchip.primary { background: var(--brand-soft); color: var(--brand); border-color: transparent; }
 .card-foot { display: flex; align-items: center; gap: 6px; margin-top: 10px; flex-wrap: wrap; }
 .card-price { margin-left: auto; font-size: 15px; font-weight: 800; color: var(--text); letter-spacing: -0.02em; }
+
+/* 태그 색상 코딩 시스템 (아티팩트 섹션02) */
+.ctag { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; font-weight: 700; padding: 4px 10px; border-radius: 8px; }
+.ctag.t-device { background: #dff3ec; color: #0f8a6b; }        /* 청록 = 특정 기종 */
+.ctag.t-common { background: #ececf0; color: #5b6068; }        /* 회색 = 공용(범용) */
+.stag { display: inline-flex; align-items: center; gap: 3px; font-size: 11.5px; font-weight: 700; padding: 3px 9px; border-radius: 8px; }
+.stag.si-conn { background: #ece9fb; color: #6b4de6; }         /* 보라 = 커넥터 연결형 */
+.stag.si-intg { background: #fbe6ef; color: #c43b7e; }         /* 핑크 = 기종별 일체형 */
+[data-theme="dark"] .ctag.t-device { background: #123a30; color: #4bd6a8; }
+[data-theme="dark"] .ctag.t-common { background: #2a2c31; color: #a9adb5; }
+[data-theme="dark"] .stag.si-conn { background: #241e42; color: #a996f5; }
+[data-theme="dark"] .stag.si-intg { background: #3a1526; color: #f07bb0; }
+
+/* 바로가기 바 (N·C·F·B·🎨) */
+.qbar { display: flex; align-items: center; gap: 5px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-soft); }
+.qb { width: 30px; height: 30px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center;
+  font-size: 12px; font-weight: 800; text-decoration: none; cursor: pointer; border: 1px solid transparent; transition: transform .1s; }
+.qb:hover { transform: translateY(-1px); }
+.qb.off { opacity: .3; pointer-events: none; }
+.qb.qn { background: #e4f7ec; color: #03a94e; }
+.qb.qc { background: #fdeceb; color: #ee2b2b; }
+.qb.qf { background: #ece9fb; color: #5b4de6; }
+.qb.qb2 { background: #fdf2df; color: #d9930b; }
+.qb.qpal { margin-left: auto; background: var(--panel-2); border-color: var(--border); font-size: 14px; }
+[data-theme="dark"] .qb.qn { background: #123020; } [data-theme="dark"] .qb.qc { background: #3a1715; }
+[data-theme="dark"] .qb.qf { background: #241e42; } [data-theme="dark"] .qb.qb2 { background: #33280d; }
 [data-theme="dark"] .card-status.live { background: #133520; color: #4ade80; }
 [data-theme="dark"] .card-status.disc { background: #3a1715; color: #f87171; }
 
