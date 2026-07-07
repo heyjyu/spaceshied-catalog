@@ -894,12 +894,18 @@ function cardHTML(r, i) {
   const devTag = modelUniversal
     ? `<span class="ctag t-common">↔ 공용${size ? ` ${esc(size)}` : ""}</span>`
     : `<span class="ctag t-device">⌚ ${esc(model)}</span>`;
-  // ⑤ 스트랩 형태 태그: 전용 컬럼(스트랩형태) 우선, 없으면 공용여부로 판단
+  // ⑤ 스펙 스트립: 커넥터(형태) / 구조(스트랩형태) / 규격
   const stField = String(r["스트랩형태"] || "").trim();
   const isConn = stField ? /연결/.test(stField) : universal;
-  const shapeTag = isConn
-    ? `<span class="stag si-conn">⚡ 연결형</span>`
-    : `<span class="stag si-intg">⌚ 일체형</span>`;
+  const shapeVal = String(r["형태"] || "").trim();           // 일반형/날개형
+  const connName = shapeVal
+    || (/러그/.test(connVal) ? "러그형" : /날개/.test(connVal) ? "날개형" : /원클릭/.test(connVal) ? "원클릭" : /원터치/.test(connVal) ? "원터치" : (universal ? "일반형" : "-"));
+  const structName = isConn ? "결합형" : "일체형";
+  const specStrip = `<div class="spec-strip">
+      <div class="ss-cell ss-conn"><div class="ss-l">커넥터</div><div class="ss-v">${esc(connName)}</div></div>
+      <div class="ss-cell ss-struct"><div class="ss-l">구조</div><div class="ss-v">${esc(structName)}</div></div>
+      <div class="ss-cell ss-size"><div class="ss-l">규격</div><div class="ss-v">${esc(size || "-")}</div></div>
+    </div>`;
   // ⑥ 바로가기: N 네이버 / C 쿠팡 / F 플로우 / B 1688
   const naver = String(r["네이버스토어"] || "").trim();
   const coupang = String(r["쿠팡링크"] || "").trim();
@@ -913,8 +919,8 @@ function cardHTML(r, i) {
     <div class="body">
       <div class="card-chips">${devTag}</div>
       <div class="name">${esc(rowTitle(r))}</div>
+      ${specStrip}
       <div class="card-foot">
-        ${shapeTag}
         ${cc ? `<span class="cc-badge">🎨 ${cc}</span>` : ""}
         ${price ? `<span class="card-price">${esc(won(price))}</span>` : ""}
       </div>

@@ -727,6 +727,17 @@ main { padding: 18px 24px 48px; max-width: 1400px; margin: 0 auto; }
 [data-theme="dark"] .stag.si-conn { background: #241e42; color: #a996f5; }
 [data-theme="dark"] .stag.si-intg { background: #3a1526; color: #f07bb0; }
 
+/* 스펙 스트립: 커넥터 / 구조 / 규격 3칸 */
+.spec-strip { display: flex; margin-top: 10px; border-radius: 12px; overflow: hidden; border: 1px solid var(--border-soft); }
+.ss-cell { flex: 1; text-align: center; padding: 7px 4px 8px; min-width: 0; }
+.ss-l { font-size: 10.5px; color: var(--muted); letter-spacing: .02em; }
+.ss-v { font-size: 13px; font-weight: 700; margin-top: 2px; color: var(--text); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ss-conn { background: #faf3e3; }   .ss-conn .ss-v { color: #8a6d1a; }
+.ss-struct { background: #eceafd; } .ss-struct .ss-v { color: #4b3fbf; }
+.ss-size { background: var(--panel-2); }
+[data-theme="dark"] .ss-conn { background: #332a12; }   [data-theme="dark"] .ss-conn .ss-v { color: #e2c063; }
+[data-theme="dark"] .ss-struct { background: #241e42; } [data-theme="dark"] .ss-struct .ss-v { color: #b3a6f7; }
+
 /* 바로가기 바 (N·C·F·B·🎨) */
 .qbar { display: flex; align-items: center; gap: 5px; margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--border-soft); }
 .qb { width: 30px; height: 30px; border-radius: 8px; display: inline-flex; align-items: center; justify-content: center;
