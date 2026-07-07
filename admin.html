@@ -10,7 +10,7 @@
   <title>관리자 — 상품 관리</title>
   <!-- 테마: 모바일(≤860px) 라이트 고정, 데스크톱은 저장값(모든 페이지 동일 로직) -->
   <script>document.documentElement.dataset.theme = window.matchMedia("(max-width: 860px)").matches ? "light" : (localStorage.getItem("theme") || "light");</script>
-  <link rel="stylesheet" href="styles.css?v=91" />
+  <link rel="stylesheet" href="styles.css?v=92" />
   <style>
     .admin-wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
     .admin-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
@@ -305,6 +305,7 @@
         <button class="btn" id="valBtn" title="기종·호환·재질 등 필터 값 일괄 변경/정리">🏷️ 값 정리</button>
         <button class="btn" id="backupBtn" title="현재 DB 전체를 zip으로 백업 다운로드">💾 백업</button>
         <button class="btn" id="restoreBtn" title="백업 zip으로 DB 되돌리기">♻️ 복원</button>
+        <button class="btn" id="sigBtn" title="상품 사진을 분석해 '비슷한 제품' 추천을 사진(색·패턴) 기준으로 정확하게">🔍 유사도 분석</button>
         <input type="file" id="restoreFile" accept=".zip,.json" style="display:none">
         <button class="btn brand" id="addBtn">＋ 새 상품</button>
         <a class="btn" href="index.html"><span aria-hidden="true">🛍️</span> 카탈로그</a>
@@ -316,6 +317,7 @@
     document.getElementById("colBtn").addEventListener("click", openColumns);
     document.getElementById("valBtn").addEventListener("click", openValues);
     document.getElementById("backupBtn").addEventListener("click", backupDb);
+    document.getElementById("sigBtn").addEventListener("click", analyzeSigs);
     document.getElementById("restoreBtn").addEventListener("click", () => document.getElementById("restoreFile").click());
     document.getElementById("restoreFile").addEventListener("change", (e) => { if (e.target.files[0]) restoreDb(e.target.files[0]); e.target.value = ""; });
     let qT;   // 검색 디바운스: 타이핑마다 618행 재렌더 방지
@@ -355,6 +357,46 @@
 
   // (썸네일 일괄 생성 버튼은 2026-07-03 전량(249장) 생성 완료 후 제거 —
   //  새 업로드는 imgFile 핸들러에서 썸네일을 자동 생성하므로 더 이상 불필요)
+
+  // ====== 이미지 색상 지문 (시각적 유사도용) ======
+  //  8x8로 축소한 RGB 192바이트를 base64로 저장 → 카탈로그 '비슷한 제품'이 색·패턴 기준으로 추천
+  async function imageSig(blobOrUrl) {
+    const blob = typeof blobOrUrl === "string" ? await (await fetch(blobOrUrl)).blob() : blobOrUrl;
+    const bmp = await createImageBitmap(blob);
+    const c = document.createElement("canvas"); c.width = 8; c.height = 8;
+    const ctx = c.getContext("2d");
+    ctx.fillStyle = "#fff"; ctx.fillRect(0, 0, 8, 8);
+    ctx.drawImage(bmp, 0, 0, 8, 8);
+    const d = ctx.getImageData(0, 0, 8, 8).data;
+    let bin = "";
+    for (let i = 0; i < d.length; i += 4) bin += String.fromCharCode(d[i], d[i + 1], d[i + 2]);
+    return btoa(bin);
+  }
+
+  // 대표 이미지가 있는데 지문이 없는 상품 전체 일괄 분석
+  async function analyzeSigs() {
+    const targets = rows.filter((r) => r.image && !r.img_sig);
+    if (!targets.length) { alert("분석할 상품이 없습니다. (전부 완료됨)"); return; }
+    if (!await uiConfirm(`상품 ${targets.length}개의 사진을 분석해 '비슷한 제품' 추천 정확도를 올립니다.\n(원본·데이터 변경 없음, 분석값만 저장) 진행할까요?`, { okText: "분석 시작" })) return;
+    const btn = document.getElementById("sigBtn");
+    let done = 0, ok = 0, failed = 0;
+    const thumbOf = (u) => adminThumb(u);
+    for (const r of targets) {
+      done++;
+      if (btn) btn.textContent = `🔍 ${done}/${targets.length}…`;
+      try {
+        let sig;
+        try { sig = await imageSig(thumbOf(r.image)); }        // 썸네일(가벼움) 우선
+        catch (e) { sig = await imageSig(r.image); }            // 없으면 원본
+        const { error } = await sb.from(TABLE).update({ img_sig: sig }).eq("id", r.id);
+        if (error) { failed++; continue; }
+        r.img_sig = sig; ok++;
+      } catch (e) { failed++; }
+    }
+    if (btn) btn.textContent = "🔍 유사도 분석";
+    signalCatalog();
+    alert(`사진 분석 완료: ${ok}/${targets.length}개${failed ? ` (실패 ${failed})` : ""}\n카탈로그의 '비슷한 제품'이 사진 기준으로 좋아집니다.`);
+  }
 
   // ====== 백업 / 복원 ======
   const BACKUP_TABLES = ["products", "categories", "column_config"];
@@ -720,6 +762,7 @@
     renderStrapUI(true);
     // 입력 변경 추적 → 바깥 클릭/취소 시 실수로 닫혀 내용 날아가는 것 방지
     let dirty = false;
+    let pendingSig;   // 대표 이미지 새 업로드 시 계산된 색상 지문(저장 시 기록)
     bg.querySelectorAll("input, select, textarea").forEach((el) =>
       el.addEventListener("input", () => { dirty = true; }));
     const close = () => bg.remove();
@@ -753,6 +796,8 @@
         const th = await shrinkImage(file, 400, 0.8);
         await sb.storage.from(BUCKET).upload("thumbs/" + path, th, { upsert: true, contentType: "image/jpeg", cacheControl: "31536000" });
       } catch (e) {}
+      // 시각적 유사도용 색상 지문도 자동 계산 (저장 시 함께 기록)
+      try { pendingSig = await imageSig(small); } catch (e) {}
       const url = sb.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
       document.getElementById("f_image").value = url;
       document.getElementById("imgPreview").src = url;
@@ -860,6 +905,7 @@
       obj.color_chart_kr = krEl && krEl.value.trim() ? krEl.value.trim() : null;
       obj.extra_images = extraImgs;          // 추가 사진 여러 장
       obj.aerial_img = null;                 // 구 항공뷰는 extra_images로 흡수
+      if (pendingSig !== undefined) obj.img_sig = pendingSig;   // 새 대표 사진의 색상 지문
       if (!obj.name) { document.getElementById("saveErr").textContent = "제품명은 필수입니다."; return; }
       document.getElementById("saveErr").textContent = "저장 중…";
       const doSave = () => isNew ? sb.from(TABLE).insert(obj) : sb.from(TABLE).update(obj).eq("id", rec.id);

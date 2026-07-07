@@ -334,6 +334,10 @@ function rowFromRec(rec, map) {
   if (rec.aerial_img != null) o.__aerial = String(rec.aerial_img);                // (구) 항공뷰 — 추가 사진으로 흡수됨
   if (Array.isArray(rec.extra_images)) o.__extra = rec.extra_images.map(String);  // 추가 사진 여러 장
   if (Array.isArray(rec.related_ids)) o.__related = rec.related_ids.map(String);  // 직접 추가한 비슷한 제품 id들
+  if (rec.img_sig) {                                                              // 이미지 색상 지문(8x8 RGB, base64)
+    try { const b = atob(String(rec.img_sig)); const a = new Uint8Array(b.length);
+      for (let i = 0; i < b.length; i++) a[i] = b.charCodeAt(i); o.__sig = a; } catch (e) {}
+  }
   return o;
 }
 
@@ -1214,8 +1218,15 @@ function getSimilar(r, limit = 8, exclude = null) {
     if (o.__id && exIds.has(o.__id)) continue;
     if (exclude && exclude.has(o)) continue;
     let s = 0;
+    // 시각적 유사도(이미지 색상 지문): 색·패턴이 가까울수록 최대 +14 — 사진이 닮은 게 최우선
+    if (r.__sig && o.__sig && o.__sig.length === r.__sig.length) {
+      let diff = 0;
+      for (let i = 0; i < r.__sig.length; i++) diff += Math.abs(r.__sig[i] - o.__sig[i]);
+      const d = diff / r.__sig.length;              // 평균 색 차이 (0~255)
+      if (d < 70) s += Math.round((1 - d / 70) * 14);
+    }
     const oLine = String(o["베이스그룹"] || "").trim();
-    if (myLine && oLine === myLine) s += 6;                       // 같은 라인(베이스 디자인) = 가장 비슷
+    if (myLine && oLine === myLine) s += 6;                       // 같은 라인(베이스 디자인)
     else if (myLine && oLine && aff[myLine + "→" + oLine]) s += Math.min(4, 1 + aff[myLine + "→" + oLine]);  // 큐레이션 학습 가점
     if (myMat && String(o["재질"] || "").trim() === myMat) s += 3;   // 재질(비주얼 결)
     if (myBuckle && String(o["체결"] || "").trim() === myBuckle) s += 2;
