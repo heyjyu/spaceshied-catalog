@@ -14,7 +14,7 @@
   <link href="https://unpkg.com/tabulator-tables@5.6.1/dist/css/tabulator.min.css" rel="stylesheet" />
   <script src="https://unpkg.com/tabulator-tables@5.6.1/dist/js/tabulator.min.js"></script>
   <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
-  <link rel="stylesheet" href="styles.css?v=95" />
+  <link rel="stylesheet" href="styles.css?v=96" />
 </head>
 <body>
   <header class="topbar">
@@ -64,6 +64,8 @@
         <select id="sortSelect" class="filter">
           <option value="">기본 (사진 있는 순)</option>
           <option value="name">이름순 (가나다)</option>
+          <option value="priceAsc">가격 낮은순</option>
+          <option value="priceDesc">가격 높은순</option>
           <option value="size">사이즈순 (mm)</option>
           <option value="colors">색상 많은순</option>
           <option value="status">상태순 (출시→단종)</option>
@@ -93,6 +95,8 @@
 
     <!-- 오른쪽 콘텐츠 -->
     <div class="content">
+      <!-- 적용 중 필터 칩 (개별 ✕ 해제 + 전체 해제) -->
+      <div id="activeChips" class="active-chips hidden"></div>
       <main>
         <div id="status">데이터를 불러오는 중…</div>
         <div id="table" class="hidden"></div>
@@ -105,7 +109,7 @@
   <div id="overlay" class="hidden"></div>
   <aside id="detail" class="hidden" aria-label="상품 상세"></aside>
 
-  <script src="config.js?v=95"></script>
-  <script src="app.js?v=95"></script>
+  <script src="config.js?v=96"></script>
+  <script src="app.js?v=96"></script>
 </body>
 </html>

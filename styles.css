@@ -805,3 +805,63 @@ main { padding: 18px 24px 48px; max-width: 1400px; margin: 0 auto; }
 
 /* 테마 토글 버튼 */
 #btnTheme { font-size: 16px; }
+
+/* ============================================================
+   UX 개선 (v96): 활성 필터 칩 · 0건 안내 · 로딩 스켈레톤
+   ============================================================ */
+/* 적용 중 필터 칩 — 본문 상단 */
+.active-chips { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; padding: 14px 22px 0; }
+@media (max-width: 640px) { .active-chips { padding: 10px 14px 0; } }
+.achip {
+  display: inline-flex; align-items: center; gap: 2px;
+  background: var(--brand-soft); color: var(--brand);
+  border-radius: var(--radius-pill); padding: 5px 6px 5px 12px;
+  font-size: 13px; font-weight: 600; line-height: 1.2;
+}
+.achip-x {
+  border: 0; background: transparent; color: inherit; cursor: pointer;
+  font-size: 12px; line-height: 1; padding: 4px 6px; border-radius: 50%;
+}
+.achip-x:hover { background: rgba(49, 130, 246, .15); }
+.achip-clear {
+  border: 0; background: transparent; color: var(--muted); cursor: pointer;
+  font-size: 13px; font-weight: 600; padding: 5px 8px; border-radius: var(--radius-pill);
+  text-decoration: underline; text-underline-offset: 3px;
+}
+.achip-clear:hover { color: var(--text); }
+[data-theme="dark"] .achip { background: #17304d; color: #7ab8ff; }
+[data-theme="dark"] .achip-x:hover { background: rgba(122, 184, 255, .18); }
+
+/* 검색/필터 0건 안내 */
+.empty-state { text-align: center; padding: 72px 20px; color: var(--muted); }
+.empty-state .es-icon { font-size: 40px; margin-bottom: 12px; }
+.empty-state .es-title { font-size: 17px; font-weight: 700; color: var(--text); margin-bottom: 6px; }
+.empty-state .es-sub { font-size: 14px; margin-bottom: 20px; }
+.empty-state .es-reset {
+  border: 0; background: var(--brand); color: #fff; cursor: pointer;
+  font-size: 14px; font-weight: 600; padding: 10px 22px; border-radius: var(--radius-pill);
+}
+.empty-state .es-reset:hover { background: var(--brand-press); }
+/* Tabulator placeholder 안에서도 동일하게 보이도록 */
+.tabulator .tabulator-placeholder .empty-state { width: 100%; }
+
+/* 첫 로딩 스켈레톤 */
+.skel-grid {
+  display: grid; gap: 18px; padding: 22px;
+  grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+}
+@media (max-width: 640px) { .skel-grid { grid-template-columns: repeat(2, 1fr); gap: 12px; padding: 14px; } }
+.skel-card {
+  background: var(--panel); border: 1px solid var(--border-soft);
+  border-radius: var(--radius); padding: 14px; box-shadow: var(--shadow-sm);
+}
+.skel-img { aspect-ratio: 1 / 1; border-radius: var(--radius-sm); }
+.skel-line { height: 12px; border-radius: 6px; margin-top: 12px; }
+.skel-line.w60 { width: 60%; } .skel-line.w40 { width: 40%; }
+.skel-img, .skel-line {
+  background: linear-gradient(90deg, var(--border-soft) 25%, var(--border) 50%, var(--border-soft) 75%);
+  background-size: 200% 100%;
+  animation: skel-shimmer 1.3s linear infinite;
+}
+@keyframes skel-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@media (prefers-reduced-motion: reduce) { .skel-img, .skel-line { animation: none; } }

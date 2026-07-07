@@ -289,7 +289,7 @@ function supabaseEnabled() {
 }
 
 function loadData() {
-  setStatus("데이터를 불러오는 중…");
+  showSkeleton();
   if (supabaseEnabled()) return loadFromSupabase();
   const url = sheetUrl();
   // header:false 로 받아서 HEADER_ROW(제목 줄 건너뛰기)를 우리가 직접 처리
@@ -431,6 +431,29 @@ function softRefresh() {
       });
     })
     .catch(() => {}); // 자동 갱신이라 실패해도 사용자 방해하지 않음
+}
+
+// 검색/필터 0건 안내 (갤러리 + 표 placeholder 공용). onclick 전역은 위임 밖 컨텍스트(Tabulator) 때문.
+function emptyStateHTML() {
+  return `<div class="empty-state">
+    <div class="es-icon" aria-hidden="true">🔍</div>
+    <div class="es-title">조건에 맞는 상품이 없습니다</div>
+    <div class="es-sub">검색어를 바꾸거나 필터를 풀어보세요.</div>
+    <button class="es-reset" onclick="window._resetFilters&&window._resetFilters()">검색·필터 초기화</button>
+  </div>`;
+}
+
+// 첫 로딩 스켈레톤: 데이터 도착 전 빈 화면 대신 카드 자리 미리 표시
+function showSkeleton() {
+  const el = $("status");
+  el.className = "";
+  el.classList.remove("hidden");
+  el.innerHTML = `<div class="skel-grid" aria-label="불러오는 중">` +
+    Array.from({ length: 8 }, () =>
+      `<div class="skel-card"><div class="skel-img"></div><div class="skel-line w60"></div><div class="skel-line"></div><div class="skel-line w40"></div></div>`
+    ).join("") + `</div>`;
+  $("table").classList.add("hidden");
+  $("gallery").classList.add("hidden");
 }
 
 function setStatus(msg, isError) {
@@ -633,7 +656,7 @@ function buildView(rows) {
     paginationSize: CONFIG.PAGE_SIZE,
     paginationSizeSelector: [25, 50, 100, 200],
     movableColumns: true,
-    placeholder: "조건에 맞는 상품이 없습니다.",
+    placeholder: emptyStateHTML(),
     rowFormatter: (row) => {   // 리스트 뷰: 단종 제품 전체 흐릿 처리
       row.getElement().classList.toggle("row-discont", statusKey(row.getData()) === "discont");
     },
@@ -692,11 +715,28 @@ function mmNum(r) {
   const n = parseInt(v, 10);
   return isFinite(n) ? n : 9999;
 }
+// 가격 정렬용: 숫자 가격(없으면 null → 오름/내림 모두 맨 뒤로).
+function priceNum(r) {
+  const raw = colKeys.price ? String(r[colKeys.price] ?? "").trim() : "";
+  if (raw === "") return null;
+  const n = Number(raw.replace(/[^0-9.-]/g, ""));
+  return isFinite(n) ? n : null;
+}
+// 가격 없는 상품은 방향과 무관하게 맨 뒤 (품절/미정 상품이 맨 위 차지 방지)
+function priceCmp(a, b, dir) {
+  const x = priceNum(a), y = priceNum(b);
+  if (x == null && y == null) return 0;
+  if (x == null) return 1;
+  if (y == null) return -1;
+  return (x - y) * dir;
+}
 // allRows 를 정렬한 새 배열. key="" 면 기본 순서(사진 있는 순, allRows 그대로).
 function sortedRows(rows, key) {
   const arr = rows.slice();
   const cmp = {
     name:   (a, b) => String(rowTitle(a)).localeCompare(String(rowTitle(b)), "ko"),
+    priceAsc:  (a, b) => priceCmp(a, b, 1),
+    priceDesc: (a, b) => priceCmp(a, b, -1),
     size:   (a, b) => mmNum(a) - mmNum(b),
     colors: (a, b) => colorCountOf(b) - colorCountOf(a),
     status: (a, b) => STATUS_ORDER.indexOf(statusKey(a)) - STATUS_ORDER.indexOf(statusKey(b)),
@@ -721,6 +761,7 @@ function activeFilterCount() {
   return n;
 }
 function updateFilterCount() {
+  renderActiveChips();
   const n = activeFilterCount();
   const badge = $("filterCount");
   const btn = $("btnFilters");
@@ -729,6 +770,64 @@ function updateFilterCount() {
   badge.classList.toggle("hidden", n === 0);
   btn.classList.toggle("active", n > 0);
 }
+
+// ---- 적용 중 필터 칩 (본문 상단, 개별 ✕ 해제) -----------------------
+const STOCK_LABEL = { out: "품절", low: "재고부족", ok: "정상" };
+function chipItems() {
+  const items = [];
+  if (filterState.search) items.push({ t: "search", label: `검색 “${filterState.search}”` });
+  if (filterState.category) items.push({ t: "category", label: catMeta(filterState.category).label });
+  if (filterState.lifecycle && STATUS_DEF[filterState.lifecycle])
+    items.push({ t: "lifecycle", label: STATUS_DEF[filterState.lifecycle].label });
+  if (filterState.favOnly) items.push({ t: "fav", label: "★ 즐겨찾기만" });
+  for (const f of facetCols) {
+    const v = filterState.facets[f.key];
+    if (!v) continue;
+    const disp = (f.label === "호환" || f.label === "기종") ? connUniversalLabel(v) : v;
+    items.push({ t: "facet", key: f.key, label: `${f.label}: ${disp}` });
+  }
+  if (filterState.stock) items.push({ t: "stock", label: `재고: ${STOCK_LABEL[filterState.stock] || filterState.stock}` });
+  return items;
+}
+function renderActiveChips() {
+  const bar = $("activeChips");
+  if (!bar) return;
+  const items = chipItems();
+  bar.classList.toggle("hidden", items.length === 0);
+  if (!items.length) { bar.innerHTML = ""; return; }
+  bar.innerHTML = items.map((c) =>
+    `<span class="achip"><span class="achip-l">${esc(c.label)}</span>
+      <button class="achip-x" data-t="${c.t}" data-key="${esc(c.key || "")}" aria-label="${esc(c.label)} 해제">✕</button></span>`
+  ).join("") + (items.length >= 2 ? `<button class="achip-clear" id="achipClear">전체 해제</button>` : "");
+}
+function removeChip(t, key) {
+  if (t === "search") { filterState.search = ""; $("search").value = ""; }
+  else if (t === "category") { filterState.category = ""; renderCatNav(); }
+  else if (t === "lifecycle") filterState.lifecycle = "";
+  else if (t === "fav") { filterState.favOnly = false; updateFavUI(); }
+  else if (t === "stock") { filterState.stock = ""; $("stockFilter").value = ""; }
+  else if (t === "facet") {
+    filterState.facets[key] = "";
+    document.querySelectorAll("select.facet-select").forEach((s) => { if (s.dataset.key === key) s.value = ""; });
+  }
+  applyFilters();
+}
+// 필터에 걸리는 모든 조건 해제 (정렬·뷰모드는 유지 — goHome과 다름)
+function resetAllFilters() {
+  filterState.search = "";
+  filterState.stock = "";
+  filterState.category = "";
+  filterState.lifecycle = "";
+  filterState.favOnly = false;
+  for (const k of Object.keys(filterState.facets)) filterState.facets[k] = "";
+  $("search").value = "";
+  $("stockFilter").value = "";
+  document.querySelectorAll("select.facet-select").forEach((s) => (s.value = ""));
+  updateFavUI();
+  renderCatNav();
+  applyFilters();
+}
+window._resetFilters = resetAllFilters; // Tabulator placeholder(문자열 HTML)의 onclick에서 사용
 
 function clearFilters() {
   filterState.search = "";
@@ -924,6 +1023,12 @@ function renderGallery() {
   galleryRows = rows;
   galleryPos = 0;
   bindGalleryEvents(g);
+  // 0건: 백지 대신 안내 + 초기화 버튼 (고장으로 오해 방지)
+  if (!rows.length) {
+    if (galleryIO) galleryIO.disconnect();
+    g.innerHTML = emptyStateHTML();
+    return;
+  }
   g.innerHTML = `<div id="gallerySentinel" class="gallery-sentinel" aria-hidden="true"></div>`;
   appendGalleryChunk();
   setupGalleryObserver();
@@ -1573,6 +1678,14 @@ function init() {
   // 모바일: 사이드바(카테고리+필터) 드로어 열기/닫기
   $("btnFilters").addEventListener("click", toggleSidebar);
   $("sidebarBackdrop").addEventListener("click", closeSidebar);
+
+  // 활성 필터 칩: ✕ 개별 해제 / 전체 해제 (위임 — 칩은 매번 다시 그려짐)
+  const chipsBar = $("activeChips");
+  if (chipsBar) chipsBar.addEventListener("click", (e) => {
+    const x = e.target.closest(".achip-x");
+    if (x) { removeChip(x.dataset.t, x.dataset.key); return; }
+    if (e.target.closest("#achipClear")) resetAllFilters();
+  });
 
   // 모바일은 표 뷰가 좁아 첫 컬럼만 보임 → 기본 갤러리
   if (window.matchMedia("(max-width: 640px)").matches) viewMode = "gallery";
