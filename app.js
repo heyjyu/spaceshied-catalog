@@ -322,7 +322,8 @@ function rowFromRec(rec, map) {
   if (rec.id != null) o.__id = String(rec.id);                                    // 즐겨찾기 고유키
   if (rec.color_chart != null) o.__colorChart = String(rec.color_chart);          // 중국 컬러차트
   if (rec.color_chart_kr != null) o.__colorChartKr = String(rec.color_chart_kr);  // 한국 컬러차트
-  if (rec.aerial_img != null) o.__aerial = String(rec.aerial_img);                // 항공뷰
+  if (rec.aerial_img != null) o.__aerial = String(rec.aerial_img);                // (구) 항공뷰 — 추가 사진으로 흡수됨
+  if (Array.isArray(rec.extra_images)) o.__extra = rec.extra_images.map(String);  // 추가 사진 여러 장
   if (Array.isArray(rec.related_ids)) o.__related = rec.related_ids.map(String);  // 직접 추가한 비슷한 제품 id들
   return o;
 }
@@ -1344,12 +1345,15 @@ function openDetail(r, activeTab) {
     <div class="detail-main">
       <div class="detail-imgcol">
         ${(() => {
-          // 이미지 갤러리: 대표 + 중국/한국 컬러차트 + 항공뷰 (있는 것만 썸네일로)
+          // 이미지 갤러리: 대표 + 중국/한국 컬러차트 + 추가 사진들 (있는 것만 썸네일로)
+          const extras = Array.isArray(r.__extra) ? r.__extra.filter(Boolean) : [];
+          const aerial = String(r.__aerial || "").trim();   // 구 항공뷰: 추가 사진에 아직 없으면 함께 표시
           const gal = [
             ["대표", img],
             ["중국 컬러차트", String(r.__colorChart || "").trim()],
             ["한국 컬러차트", String(r.__colorChartKr || "").trim()],
-            ["항공뷰", String(r.__aerial || "").trim()],
+            ...(aerial && !extras.includes(aerial) ? [["추가", aerial]] : []),
+            ...extras.map((u, i) => [`추가 ${i + 1}`, u]),
           ].filter(([, u]) => u);
           if (!gal.length) return '<div class="detail-img placeholder"></div>';
           const main = gal[0][1];

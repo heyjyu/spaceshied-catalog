@@ -10,7 +10,7 @@
   <title>관리자 — 상품 관리</title>
   <!-- 테마: 모바일(≤860px) 라이트 고정, 데스크톱은 저장값(모든 페이지 동일 로직) -->
   <script>document.documentElement.dataset.theme = window.matchMedia("(max-width: 860px)").matches ? "light" : (localStorage.getItem("theme") || "light");</script>
-  <link rel="stylesheet" href="styles.css?v=83" />
+  <link rel="stylesheet" href="styles.css?v=84" />
   <style>
     .admin-wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
     .admin-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
@@ -178,6 +178,14 @@
     input[type=file]::file-selector-button:hover { background: var(--brand-soft); border-color: var(--brand); color: var(--brand); }
     .thumb-preview { width: 84px; height: 84px; border-radius: 10px; object-fit: cover; border: 1px solid var(--border);
                      background: var(--panel-2); }
+    /* 추가 사진(여러 장) 그리드 */
+    .extra-grid { display: flex; flex-wrap: wrap; gap: 10px; margin-bottom: 10px; }
+    .extra-grid:empty { display: none; }
+    .extra-item { position: relative; }
+    .extra-item img { width: 84px; height: 84px; border-radius: 10px; object-fit: cover; border: 1px solid var(--border); background: var(--panel-2); display: block; }
+    .extra-del { position: absolute; top: -7px; right: -7px; width: 22px; height: 22px; border-radius: 50%;
+      border: 1px solid var(--border); background: var(--panel); color: var(--danger); font-size: 12px; line-height: 1; cursor: pointer; padding: 0; }
+    .extra-del:hover { background: #fdecec; border-color: var(--danger); }
     @media (max-width: 560px) { .grid2 { grid-template-columns: 1fr; } }
     /* 커스텀 확인 팝업 (인앱 브라우저에서 native confirm 막히는 것 대비) */
     .uiconfirm-bg { position: fixed; inset: 0; background: rgba(0,0,0,.5); z-index: 90;
@@ -658,15 +666,10 @@
             </div>
           </div>
         </div>
-        <div class="field"><label>항공뷰</label>
-          <div style="display:flex;gap:12px;align-items:flex-start">
-            <img class="thumb-preview" id="aerialPreview" alt="" onerror="this.removeAttribute('src')"${rec.aerial_img ? ` src="${esc(rec.aerial_img)}"` : ""}>
-            <div style="flex:1">
-              <input id="f_aerial_img" type="text" placeholder="이미지 URL (또는 아래 업로드)" value="${v('aerial_img')}">
-              <input id="aerialFile" type="file" accept="image/*" style="margin-top:8px;font-size:12px">
-              <div class="err" id="aerialErr"></div>
-            </div>
-          </div>
+        <div class="field"><label>추가 사진 <span style="color:var(--muted);font-weight:400">(여러 장 가능 — 항공뷰·착용샷 등 자유)</span></label>
+          <div id="extraGrid" class="extra-grid"></div>
+          <input id="extraFiles" type="file" accept="image/*" multiple>
+          <div class="err" id="extraErr"></div>
         </div>
         <div class="field"><label>색상 <span style="color:var(--muted);font-weight:400">(쉼표로 구분)</span></label><input id="f_color" type="text" value="${v('color')}"></div>
 
@@ -791,8 +794,38 @@
       document.getElementById("ccErr").textContent = "";
     });
 
-    // 한국 컬러차트 / 항공뷰 업로드 (컬러차트와 동일 처리)
-    [["krFile", "f_color_chart_kr", "krPreview", "krErr", "chartkr"], ["aerialFile", "f_aerial_img", "aerialPreview", "aerialErr", "aerial"]].forEach(([fileId, inputId, prevId, errId, prefix]) => {
+    // 추가 사진(여러 장): 현재 목록 렌더 + 멀티 업로드 + ✕ 삭제
+    let extraImgs = Array.isArray(rec.extra_images) ? rec.extra_images.filter(Boolean).map(String) : [];
+    if (rec.aerial_img && !extraImgs.includes(rec.aerial_img)) extraImgs.push(String(rec.aerial_img));  // 구 항공뷰 흡수
+    const extraGrid = document.getElementById("extraGrid");
+    const renderExtras = () => {
+      extraGrid.innerHTML = extraImgs.map((u, i) =>
+        `<div class="extra-item"><img src="${esc(u)}" alt=""><button type="button" class="extra-del" data-x="${i}">✕</button></div>`).join("");
+      extraGrid.querySelectorAll(".extra-del").forEach((b) => b.addEventListener("click", () => {
+        extraImgs.splice(Number(b.dataset.x), 1); dirty = true; renderExtras();
+      }));
+    };
+    renderExtras();
+    const extraFilesEl = document.getElementById("extraFiles");
+    if (extraFilesEl) extraFilesEl.addEventListener("change", async () => {
+      const files = [...extraFilesEl.files]; if (!files.length) return;
+      const errEl = document.getElementById("extraErr");
+      for (let i = 0; i < files.length; i++) {
+        errEl.textContent = `업로드 중… (${i + 1}/${files.length})`;
+        const small = await shrinkImage(files[i], 1400);
+        const path = `extra_${Date.now()}_${i}_${files[i].name.replace(/[^\w.\-]/g, "_")}`.replace(/\.\w+$/, "") + ".jpg";
+        const { error } = await sb.storage.from(BUCKET).upload(path, small, { upsert: true, contentType: "image/jpeg", cacheControl: "31536000" });
+        if (error) { errEl.textContent = "업로드 실패: " + error.message; return; }
+        extraImgs.push(sb.storage.from(BUCKET).getPublicUrl(path).data.publicUrl);
+      }
+      errEl.textContent = "";
+      dirty = true;
+      renderExtras();
+      extraFilesEl.value = "";
+    });
+
+    // 한국 컬러차트 업로드 (컬러차트와 동일 처리)
+    [["krFile", "f_color_chart_kr", "krPreview", "krErr", "chartkr"]].forEach(([fileId, inputId, prevId, errId, prefix]) => {
       const el = document.getElementById(fileId);
       if (!el) return;
       el.addEventListener("change", async () => {
@@ -845,8 +878,8 @@
       obj.color_chart = ccEl && ccEl.value.trim() ? ccEl.value.trim() : null;
       const krEl = document.getElementById("f_color_chart_kr");
       obj.color_chart_kr = krEl && krEl.value.trim() ? krEl.value.trim() : null;
-      const aeEl = document.getElementById("f_aerial_img");
-      obj.aerial_img = aeEl && aeEl.value.trim() ? aeEl.value.trim() : null;
+      obj.extra_images = extraImgs;          // 추가 사진 여러 장
+      obj.aerial_img = null;                 // 구 항공뷰는 extra_images로 흡수
       if (!obj.name) { document.getElementById("saveErr").textContent = "제품명은 필수입니다."; return; }
       document.getElementById("saveErr").textContent = "저장 중…";
       const doSave = () => isNew ? sb.from(TABLE).insert(obj) : sb.from(TABLE).update(obj).eq("id", rec.id);
