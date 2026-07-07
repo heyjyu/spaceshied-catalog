@@ -893,13 +893,13 @@ function cardHTML(r, i) {
   const devTag = modelUniversal
     ? `<span class="ctag t-common">↔ 공용${size ? ` ${esc(size)}` : ""}</span>`
     : `<span class="ctag t-device">⌚ ${esc(model)}</span>`;
-  // ⑤ 스펙 스트립: 커넥터(형태) / 구조(스트랩형태) / 규격
+  // ⑤ 스펙 스트립: 커넥터(형태) / 구조(스트랩형태: 결합형·기본형) / 규격
   const stField = String(r["스트랩형태"] || "").trim();
-  const isConn = stField ? /연결/.test(stField) : universal;
+  const isConn = stField ? /결합|연결/.test(stField) : universal;
   const shapeVal = String(r["형태"] || "").trim();           // 일반형/날개형
   const connName = shapeVal
     || (/러그/.test(connVal) ? "러그형" : /날개/.test(connVal) ? "날개형" : /원클릭/.test(connVal) ? "원클릭" : /원터치/.test(connVal) ? "원터치" : (universal ? "일반형" : "-"));
-  const structName = isConn ? "결합형" : "일체형";
+  const structName = isConn ? "결합형" : "기본형";
   const specStrip = `<div class="spec-strip">
       <div class="ss-cell ss-conn"><div class="ss-l">커넥터</div><div class="ss-v">${esc(connName)}</div></div>
       <div class="ss-cell ss-struct"><div class="ss-l">구조</div><div class="ss-v">${esc(structName)}</div></div>
@@ -1198,13 +1198,13 @@ function openDetail(r) {
   const connVal = connFacet ? String(r[connFacet.key] || "").trim() : "";
   const universal = !connVal || /공용|공통|범용/.test(connVal);
   const stField = String(r["스트랩형태"] || "").trim();
-  const isConn = stField ? /연결/.test(stField) : universal;
+  const isConn = stField ? /결합|연결/.test(stField) : universal;
   const shapeVal = String(r["형태"] || "").trim();
   const connName = shapeVal
     || (/러그/.test(connVal) ? "러그형" : /날개/.test(connVal) ? "날개형" : /원클릭/.test(connVal) ? "원클릭" : /원터치/.test(connVal) ? "원터치" : (universal ? "일반형" : "-"));
   const memoVal = String(r["메모"] || "").trim();
   const specRows = [
-    ["스트랩 구조", isConn ? "결합형" : "일체형"],
+    ["스트랩 구조", isConn ? "결합형" : "기본형"],
     ["커넥터 타입", connName],
     ["스트랩 너비", size || "-"],
     ["재질", material || "-"],
