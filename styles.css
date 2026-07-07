@@ -82,7 +82,7 @@ header.topbar {
 }
 .search-wrap input {
   width: 100%;
-  padding: 10px 14px 10px 38px;
+  padding: 10px 74px 10px 38px;   /* 오른쪽 = 검색 버튼 자리 */
   border: 1px solid transparent;
   border-radius: var(--radius-pill);
   background: #ededf0;
@@ -96,6 +96,16 @@ header.topbar {
   border-color: var(--brand);
   box-shadow: 0 0 0 4px var(--brand-soft);
 }
+/* 검색 실행 버튼 (입력창 안 오른쪽) */
+.search-go {
+  position: absolute; right: 5px; top: 50%; transform: translateY(-50%);
+  padding: 6px 14px; border: none; border-radius: var(--radius-pill);
+  background: var(--brand); color: #fff; font-size: 13px; font-weight: 700; cursor: pointer;
+  transition: background .12s;
+}
+.search-go:hover { background: var(--brand-press); }
+/* 갤러리 점진 로딩 센티널 */
+.gallery-sentinel { grid-column: 1 / -1; height: 1px; }
 .search-wrap svg {
   position: absolute;
   left: 13px; top: 50%;

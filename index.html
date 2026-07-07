@@ -14,7 +14,7 @@
   <link href="https://unpkg.com/tabulator-tables@5.6.1/dist/css/tabulator.min.css" rel="stylesheet" />
   <script src="https://unpkg.com/tabulator-tables@5.6.1/dist/js/tabulator.min.js"></script>
   <script src="https://unpkg.com/papaparse@5.4.1/papaparse.min.js"></script>
-  <link rel="stylesheet" href="styles.css?v=74" />
+  <link rel="stylesheet" href="styles.css?v=75" />
 </head>
 <body>
   <header class="topbar">
@@ -24,6 +24,7 @@
         <circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/>
       </svg>
       <input id="search" type="search" placeholder="기종·재질·규격·체결·색상 검색…" autocomplete="off" />
+      <button class="search-go" id="btnSearch" aria-label="검색">검색</button>
     </div>
     <div class="topbar-actions">
       <button class="btn" id="btnFilters" aria-expanded="false" aria-controls="filters">
@@ -104,7 +105,7 @@
   <div id="overlay" class="hidden"></div>
   <aside id="detail" class="hidden" aria-label="상품 상세"></aside>
 
-  <script src="config.js?v=74"></script>
-  <script src="app.js?v=74"></script>
+  <script src="config.js?v=75"></script>
+  <script src="app.js?v=75"></script>
 </body>
 </html>

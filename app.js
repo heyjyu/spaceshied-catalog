@@ -860,81 +860,147 @@ function rowTitle(r) {
 function renderGallery() {
   const rows = table ? table.getData("active") : allRows;
   const g = $("gallery");
+  // ▼ 점진 렌더: 상품이 많아도(600+) 첫 화면은 60개만 그리고, 스크롤하면 이어서 그림.
+  //   (전체를 한 번에 DOM으로 만들면 검색/필터마다 수백 ms 걸려 느려짐)
+  galleryRows = rows;
+  galleryPos = 0;
+  bindGalleryEvents(g);
+  g.innerHTML = `<div id="gallerySentinel" class="gallery-sentinel" aria-hidden="true"></div>`;
+  appendGalleryChunk();
+  setupGalleryObserver();
+}
+
+const GALLERY_CHUNK = 60;
+let galleryRows = [];
+let galleryPos = 0;
+let galleryIO = null;
+
+function cardHTML(r, i) {
   const sizeFacet = facetCols.find((f) => f.derive === "mm");
-  g.innerHTML = rows.map((r, i) => {
-    const img = colKeys.image ? r[colKeys.image] : "";
-    const mf = facetCols.find((f) => f.label === "기종") || facetCols[0];
-    const tf = facetCols.find((f) => f.label === "재질");
-    const model = mf ? String(r[mf.key] || "").trim() : "";
-    const material = tf ? String(r[tf.key] || "").trim() : "";
-    const size = firstMm(r["규격"]) || firstMm(r["베이스규격"]) || (sizeFacet && firstMm(r[sizeFacet.key])) || firstMm(rowTitle(r)) || "";
-    const cc = colorCountOf(r);
-    const price = colKeys.price ? String(r[colKeys.price] || "").trim() : "";
-    // 호환(커넥터) 기준: 공용/범용 = 연결형, 그 외 = 기종별 일체형
-    const connFacet = facetCols.find((f) => f.label === "호환");
-    const connVal = connFacet ? String(r[connFacet.key] || "").trim() : "";
-    const universal = !connVal || /공용|공통|범용/.test(connVal);
-    // ③ 기종 태그: 기종(model) 값 기준. 특정 기종=청록(⌚ 모델명), 공용/빈값=회색(↔ 공용 mm)
-    const modelUniversal = !model || /공용|공통|범용/.test(model);
-    const devTag = modelUniversal
-      ? `<span class="ctag t-common">↔ 공용${size ? ` ${esc(size)}` : ""}</span>`
-      : `<span class="ctag t-device">⌚ ${esc(model)}</span>`;
-    // ⑤ 스트랩 형태 태그: 전용 컬럼(스트랩형태) 우선, 없으면 공용여부로 판단
-    const stField = String(r["스트랩형태"] || "").trim();
-    const isConn = stField ? /연결/.test(stField) : universal;
-    const shapeTag = isConn
-      ? `<span class="stag si-conn">⚡ 연결형</span>`
-      : `<span class="stag si-intg">⌚ 일체형</span>`;
-    // ⑥ 바로가기: N 네이버 / C 쿠팡 / F 플로우 / B 1688
-    const naver = String(r["네이버스토어"] || "").trim();
-    const coupang = String(r["쿠팡링크"] || "").trim();
-    const flow = String(r["플로우링크"] || "").trim();
-    const src = String(r["구매링크"] || "").trim();
-    const qb = (cls, ch, url) => `<a class="qb ${cls}${url ? "" : " off"}" ${url ? `href="${esc(url)}" target="_blank" rel="noopener"` : 'aria-disabled="true"'} onclick="event.stopPropagation()">${ch}</a>`;
-    return `<div class="card" data-i="${i}">
-      <button class="card-fav${isFav(r) ? " on" : ""}" data-i="${i}" aria-label="즐겨찾기">${isFav(r) ? "★" : "☆"}</button>
-      ${img ? `<img class="thumb" src="${esc(img)}" loading="lazy" alt="">`
-            : '<div class="thumb"></div>'}
-      <div class="body">
-        <div class="card-chips">${devTag}</div>
-        <div class="name">${esc(rowTitle(r))}</div>
-        <div class="card-foot">
-          ${shapeTag}
-          ${cc ? `<span class="cc-badge">🎨 ${cc}</span>` : ""}
-          ${price ? `<span class="card-price">${esc(won(price))}</span>` : ""}
-        </div>
-        <div class="qbar">
-          ${qb("qn", "N", naver)}${qb("qc", "C", coupang)}${qb("qf", "F", flow)}${qb("qb2", "B", src)}
-          <button class="qb qpal" data-i="${i}" title="색상 목록 복사" onclick="event.stopPropagation()">🎨</button>
-        </div>
+  const img = colKeys.image ? r[colKeys.image] : "";
+  const mf = facetCols.find((f) => f.label === "기종") || facetCols[0];
+  const model = mf ? String(r[mf.key] || "").trim() : "";
+  const size = firstMm(r["규격"]) || firstMm(r["베이스규격"]) || (sizeFacet && firstMm(r[sizeFacet.key])) || firstMm(rowTitle(r)) || "";
+  const cc = colorCountOf(r);
+  const price = colKeys.price ? String(r[colKeys.price] || "").trim() : "";
+  // 호환(커넥터) 기준: 공용/범용 = 연결형, 그 외 = 기종별 일체형
+  const connFacet = facetCols.find((f) => f.label === "호환");
+  const connVal = connFacet ? String(r[connFacet.key] || "").trim() : "";
+  const universal = !connVal || /공용|공통|범용/.test(connVal);
+  // ③ 기종 태그: 기종(model) 값 기준. 특정 기종=청록(⌚ 모델명), 공용/빈값=회색(↔ 공용 mm)
+  const modelUniversal = !model || /공용|공통|범용/.test(model);
+  const devTag = modelUniversal
+    ? `<span class="ctag t-common">↔ 공용${size ? ` ${esc(size)}` : ""}</span>`
+    : `<span class="ctag t-device">⌚ ${esc(model)}</span>`;
+  // ⑤ 스트랩 형태 태그: 전용 컬럼(스트랩형태) 우선, 없으면 공용여부로 판단
+  const stField = String(r["스트랩형태"] || "").trim();
+  const isConn = stField ? /연결/.test(stField) : universal;
+  const shapeTag = isConn
+    ? `<span class="stag si-conn">⚡ 연결형</span>`
+    : `<span class="stag si-intg">⌚ 일체형</span>`;
+  // ⑥ 바로가기: N 네이버 / C 쿠팡 / F 플로우 / B 1688
+  const naver = String(r["네이버스토어"] || "").trim();
+  const coupang = String(r["쿠팡링크"] || "").trim();
+  const flow = String(r["플로우링크"] || "").trim();
+  const src = String(r["구매링크"] || "").trim();
+  const qb = (cls, ch, url) => `<a class="qb ${cls}${url ? "" : " off"}" ${url ? `href="${esc(url)}" target="_blank" rel="noopener"` : 'aria-disabled="true"'} onclick="event.stopPropagation()">${ch}</a>`;
+  return `<div class="card" data-i="${i}">
+    <button class="card-fav${isFav(r) ? " on" : ""}" data-i="${i}" aria-label="즐겨찾기">${isFav(r) ? "★" : "☆"}</button>
+    ${img ? `<img class="thumb" src="${esc(img)}" loading="lazy" alt="">`
+          : '<div class="thumb"></div>'}
+    <div class="body">
+      <div class="card-chips">${devTag}</div>
+      <div class="name">${esc(rowTitle(r))}</div>
+      <div class="card-foot">
+        ${shapeTag}
+        ${cc ? `<span class="cc-badge">🎨 ${cc}</span>` : ""}
+        ${price ? `<span class="card-price">${esc(won(price))}</span>` : ""}
       </div>
-    </div>`;
-  }).join("");
-  // 즐겨찾기 별 클릭 (상세 안 열리게 먼저 처리)
-  g.querySelectorAll(".card-fav").forEach((el) => {
-    el.addEventListener("click", (e) => {
+      <div class="qbar">
+        ${qb("qn", "N", naver)}${qb("qc", "C", coupang)}${qb("qf", "F", flow)}${qb("qb2", "B", src)}
+        <button class="qb qpal" data-i="${i}" title="색상 목록 복사" onclick="event.stopPropagation()">🎨</button>
+      </div>
+    </div>
+  </div>`;
+}
+
+function appendGalleryChunk() {
+  const s = $("gallerySentinel");
+  if (!s) return;
+  const end = Math.min(galleryPos + GALLERY_CHUNK, galleryRows.length);
+  if (galleryPos < end) {
+    let html = "";
+    for (let i = galleryPos; i < end; i++) html += cardHTML(galleryRows[i], i);
+    s.insertAdjacentHTML("beforebegin", html);
+    galleryPos = end;
+  }
+  s.style.display = galleryPos >= galleryRows.length ? "none" : "";
+}
+
+function setupGalleryObserver() {
+  if (galleryIO) galleryIO.disconnect();
+  const s = $("gallerySentinel");
+  if (!s) return;
+  if ("IntersectionObserver" in window) {
+    galleryIO = new IntersectionObserver((es) => {
+      es.forEach((en) => { if (en.isIntersecting) galleryLoadMore(); });
+    }, { rootMargin: "1200px" });   // 바닥 오기 한참 전에 미리 그려서 끊김 없음
+    galleryIO.observe(s);
+  }
+  // 폴백: IO가 안 도는 브라우저/웹뷰용 스크롤 감지 (1회만 등록)
+  if (!window._gScrollBound) {
+    window._gScrollBound = true;
+    let ticking = false;
+    const onScroll = () => {
+      if (ticking) return;
+      ticking = true;
+      requestAnimationFrame(() => { ticking = false; galleryLoadMore(); });
+    };
+    window.addEventListener("scroll", onScroll, { passive: true });
+    window.addEventListener("resize", onScroll, { passive: true });
+  }
+  galleryLoadMore();   // 첫 화면이 큰 모니터면 즉시 이어 그림
+}
+// sentinel이 화면 근처(1200px 이내)면 필요한 만큼 청크 추가
+function galleryLoadMore() {
+  const s = $("gallerySentinel");
+  if (!s || viewMode !== "gallery") return;
+  let guard = 0;
+  while (galleryPos < galleryRows.length && guard++ < 20) {
+    const rect = s.getBoundingClientRect();
+    if (rect.top > innerHeight + 1200) break;
+    appendGalleryChunk();
+  }
+}
+
+// 갤러리 클릭 이벤트: 컨테이너에 1번만 위임(카드 수백 개에 리스너 안 붙임)
+function bindGalleryEvents(g) {
+  if (g._bound) return;
+  g._bound = true;
+  g.addEventListener("click", (e) => {
+    const fav = e.target.closest(".card-fav");
+    if (fav) {
       e.stopPropagation();
-      const r = rows[Number(el.dataset.i)];
+      const r = galleryRows[Number(fav.dataset.i)];
       const on = toggleFav(r);
-      el.classList.toggle("on", on);
-      el.textContent = on ? "★" : "☆";
-    });
-  });
-  // 🎨 색상 목록 복사(중국 발주용) — 색상목록 데이터 없으면 색상명 복사
-  const colorFacet = facetCols.find((f) => f.derive === "color");
-  g.querySelectorAll(".qpal").forEach((el) => {
-    el.addEventListener("click", (e) => {
+      fav.classList.toggle("on", on);
+      fav.textContent = on ? "★" : "☆";
+      return;
+    }
+    const pal = e.target.closest(".qpal");
+    if (pal) {
       e.stopPropagation();
-      const r = rows[Number(el.dataset.i)];
+      const r = galleryRows[Number(pal.dataset.i)];
+      const colorFacet = facetCols.find((f) => f.derive === "color");
       const colors = colorFacet ? String(r[colorFacet.key] || "").trim() : "";
       if (!colors) { showToast("등록된 색상이 없습니다"); return; }
       try { navigator.clipboard.writeText(colors); showToast("색상 목록 복사됨: " + colors); }
       catch (_) { showToast(colors); }
-    });
-  });
-  // 카드 클릭 → 상세
-  g.querySelectorAll(".card").forEach((el) => {
-    el.addEventListener("click", () => openDetail(rows[Number(el.dataset.i)]));
+      return;
+    }
+    if (e.target.closest(".qb")) return;   // 외부 링크는 기본 동작
+    const card = e.target.closest(".card");
+    if (card) openDetail(galleryRows[Number(card.dataset.i)]);
   });
 }
 
@@ -1254,6 +1320,14 @@ function init() {
 
   let t;
   const searchEl = $("search");
+  // 검색 버튼: 즉시 검색 실행
+  const btnSearch = $("btnSearch");
+  if (btnSearch) btnSearch.addEventListener("click", () => {
+    clearTimeout(t);
+    hideSuggest();
+    filterState.search = searchEl.value.trim();
+    applyFilters();
+  });
   searchEl.addEventListener("input", (e) => {
     renderSuggestions(e.target.value);          // 자동완성은 즉시
     clearTimeout(t);
