@@ -10,7 +10,7 @@
   <title>관리자 — 상품 관리</title>
   <!-- 테마: 모바일(≤860px) 라이트 고정, 데스크톱은 저장값(모든 페이지 동일 로직) -->
   <script>document.documentElement.dataset.theme = window.matchMedia("(max-width: 860px)").matches ? "light" : (localStorage.getItem("theme") || "light");</script>
-  <link rel="stylesheet" href="styles.css?v=92" />
+  <link rel="stylesheet" href="styles.css?v=93" />
   <style>
     .admin-wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
     .admin-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
@@ -305,7 +305,6 @@
         <button class="btn" id="valBtn" title="기종·호환·재질 등 필터 값 일괄 변경/정리">🏷️ 값 정리</button>
         <button class="btn" id="backupBtn" title="현재 DB 전체를 zip으로 백업 다운로드">💾 백업</button>
         <button class="btn" id="restoreBtn" title="백업 zip으로 DB 되돌리기">♻️ 복원</button>
-        <button class="btn" id="sigBtn" title="상품 사진을 분석해 '비슷한 제품' 추천을 사진(색·패턴) 기준으로 정확하게">🔍 유사도 분석</button>
         <input type="file" id="restoreFile" accept=".zip,.json" style="display:none">
         <button class="btn brand" id="addBtn">＋ 새 상품</button>
         <a class="btn" href="index.html"><span aria-hidden="true">🛍️</span> 카탈로그</a>
@@ -317,7 +316,6 @@
     document.getElementById("colBtn").addEventListener("click", openColumns);
     document.getElementById("valBtn").addEventListener("click", openValues);
     document.getElementById("backupBtn").addEventListener("click", backupDb);
-    document.getElementById("sigBtn").addEventListener("click", analyzeSigs);
     document.getElementById("restoreBtn").addEventListener("click", () => document.getElementById("restoreFile").click());
     document.getElementById("restoreFile").addEventListener("change", (e) => { if (e.target.files[0]) restoreDb(e.target.files[0]); e.target.value = ""; });
     let qT;   // 검색 디바운스: 타이핑마다 618행 재렌더 방지
@@ -371,31 +369,6 @@
     let bin = "";
     for (let i = 0; i < d.length; i += 4) bin += String.fromCharCode(d[i], d[i + 1], d[i + 2]);
     return btoa(bin);
-  }
-
-  // 대표 이미지가 있는데 지문이 없는 상품 전체 일괄 분석
-  async function analyzeSigs() {
-    const targets = rows.filter((r) => r.image && !r.img_sig);
-    if (!targets.length) { alert("분석할 상품이 없습니다. (전부 완료됨)"); return; }
-    if (!await uiConfirm(`상품 ${targets.length}개의 사진을 분석해 '비슷한 제품' 추천 정확도를 올립니다.\n(원본·데이터 변경 없음, 분석값만 저장) 진행할까요?`, { okText: "분석 시작" })) return;
-    const btn = document.getElementById("sigBtn");
-    let done = 0, ok = 0, failed = 0;
-    const thumbOf = (u) => adminThumb(u);
-    for (const r of targets) {
-      done++;
-      if (btn) btn.textContent = `🔍 ${done}/${targets.length}…`;
-      try {
-        let sig;
-        try { sig = await imageSig(thumbOf(r.image)); }        // 썸네일(가벼움) 우선
-        catch (e) { sig = await imageSig(r.image); }            // 없으면 원본
-        const { error } = await sb.from(TABLE).update({ img_sig: sig }).eq("id", r.id);
-        if (error) { failed++; continue; }
-        r.img_sig = sig; ok++;
-      } catch (e) { failed++; }
-    }
-    if (btn) btn.textContent = "🔍 유사도 분석";
-    signalCatalog();
-    alert(`사진 분석 완료: ${ok}/${targets.length}개${failed ? ` (실패 ${failed})` : ""}\n카탈로그의 '비슷한 제품'이 사진 기준으로 좋아집니다.`);
   }
 
   // ====== 백업 / 복원 ======
