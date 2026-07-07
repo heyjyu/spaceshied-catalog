@@ -484,6 +484,12 @@ main { padding: 18px 24px 48px; max-width: 1400px; margin: 0 auto; }
   background: rgba(0,0,0,.4); opacity: 0; transition: opacity .15s;
 }
 .detail-imgwrap:hover .detail-copyhint { opacity: 1; }
+/* 상세 이미지 썸네일 스트립 (대표·컬러차트·항공뷰) */
+.detail-thumbs { display: flex; gap: 8px; margin-top: 10px; overflow-x: auto; padding-bottom: 2px; }
+.dthumb { width: 64px; height: 64px; flex: none; object-fit: cover; border-radius: 10px;
+  border: 2px solid var(--border-soft); cursor: pointer; background: var(--panel-2); transition: border-color .12s; }
+.dthumb:hover { border-color: var(--brand); }
+.dthumb.on { border-color: var(--brand); box-shadow: 0 0 0 2px var(--brand-soft); }
 .detail-copyhint span {
   background: rgba(20,20,22,.82); color: #fff; font-size: 13.5px; font-weight: 700;
   padding: 9px 16px; border-radius: 999px; -webkit-backdrop-filter: blur(2px); backdrop-filter: blur(2px);

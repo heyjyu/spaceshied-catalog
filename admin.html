@@ -10,7 +10,7 @@
   <title>관리자 — 상품 관리</title>
   <!-- 테마: 모바일(≤860px) 라이트 고정, 데스크톱은 저장값(모든 페이지 동일 로직) -->
   <script>document.documentElement.dataset.theme = window.matchMedia("(max-width: 860px)").matches ? "light" : (localStorage.getItem("theme") || "light");</script>
-  <link rel="stylesheet" href="styles.css?v=78" />
+  <link rel="stylesheet" href="styles.css?v=79" />
   <style>
     .admin-wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
     .admin-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
@@ -630,14 +630,34 @@
           <div class="field"><label>구매처</label><input id="f_vendor" type="text" value="${v('vendor')}" placeholder="예) WANLI INTERNATIONAL"></div>
         </div>
 
-        <div class="form-sec">컬러차트</div>
-        <div class="field">
+        <div class="form-sec">추가 이미지 <span style="color:var(--muted);font-weight:400">(상세 사진 아래 썸네일로 표시)</span></div>
+        <div class="field"><label>중국 컬러차트</label>
           <div style="display:flex;gap:12px;align-items:flex-start">
             <img class="thumb-preview" id="ccPreview" alt="" onerror="this.removeAttribute('src')"${rec.color_chart ? ` src="${esc(rec.color_chart)}"` : ""}>
             <div style="flex:1">
-              <input id="f_color_chart" type="text" placeholder="컬러차트 이미지 URL (또는 아래 업로드)" value="${v('color_chart')}">
+              <input id="f_color_chart" type="text" placeholder="이미지 URL (또는 아래 업로드)" value="${v('color_chart')}">
               <input id="ccFile" type="file" accept="image/*" style="margin-top:8px;font-size:12px">
               <div class="err" id="ccErr"></div>
+            </div>
+          </div>
+        </div>
+        <div class="field"><label>한국 컬러차트</label>
+          <div style="display:flex;gap:12px;align-items:flex-start">
+            <img class="thumb-preview" id="krPreview" alt="" onerror="this.removeAttribute('src')"${rec.color_chart_kr ? ` src="${esc(rec.color_chart_kr)}"` : ""}>
+            <div style="flex:1">
+              <input id="f_color_chart_kr" type="text" placeholder="이미지 URL (또는 아래 업로드)" value="${v('color_chart_kr')}">
+              <input id="krFile" type="file" accept="image/*" style="margin-top:8px;font-size:12px">
+              <div class="err" id="krErr"></div>
+            </div>
+          </div>
+        </div>
+        <div class="field"><label>항공뷰</label>
+          <div style="display:flex;gap:12px;align-items:flex-start">
+            <img class="thumb-preview" id="aerialPreview" alt="" onerror="this.removeAttribute('src')"${rec.aerial_img ? ` src="${esc(rec.aerial_img)}"` : ""}>
+            <div style="flex:1">
+              <input id="f_aerial_img" type="text" placeholder="이미지 URL (또는 아래 업로드)" value="${v('aerial_img')}">
+              <input id="aerialFile" type="file" accept="image/*" style="margin-top:8px;font-size:12px">
+              <div class="err" id="aerialErr"></div>
             </div>
           </div>
         </div>
@@ -719,6 +739,24 @@
       document.getElementById("ccErr").textContent = "";
     });
 
+    // 한국 컬러차트 / 항공뷰 업로드 (컬러차트와 동일 처리)
+    [["krFile", "f_color_chart_kr", "krPreview", "krErr", "chartkr"], ["aerialFile", "f_aerial_img", "aerialPreview", "aerialErr", "aerial"]].forEach(([fileId, inputId, prevId, errId, prefix]) => {
+      const el = document.getElementById(fileId);
+      if (!el) return;
+      el.addEventListener("change", async () => {
+        const file = el.files[0]; if (!file) return;
+        document.getElementById(errId).textContent = "업로드 중…";
+        const small = await shrinkImage(file, 1400);
+        const path = `${prefix}_${Date.now()}_${file.name.replace(/[^\w.\-]/g, "_")}`.replace(/\.\w+$/, "") + ".jpg";
+        const { error } = await sb.storage.from(BUCKET).upload(path, small, { upsert: true, contentType: "image/jpeg", cacheControl: "31536000" });
+        if (error) { document.getElementById(errId).textContent = "업로드 실패: " + error.message; return; }
+        const url = sb.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
+        document.getElementById(inputId).value = url;
+        document.getElementById(prevId).src = url;
+        document.getElementById(errId).textContent = "";
+      });
+    });
+
     // 저장
     document.getElementById("saveBtn").addEventListener("click", async () => {
       const obj = {};
@@ -746,6 +784,10 @@
       if (/^커넥터\s*연결형$/.test((obj.model || "").trim())) obj.model = "공용";
       const ccEl = document.getElementById("f_color_chart");
       obj.color_chart = ccEl && ccEl.value.trim() ? ccEl.value.trim() : null;
+      const krEl = document.getElementById("f_color_chart_kr");
+      obj.color_chart_kr = krEl && krEl.value.trim() ? krEl.value.trim() : null;
+      const aeEl = document.getElementById("f_aerial_img");
+      obj.aerial_img = aeEl && aeEl.value.trim() ? aeEl.value.trim() : null;
       if (!obj.name) { document.getElementById("saveErr").textContent = "제품명은 필수입니다."; return; }
       document.getElementById("saveErr").textContent = "저장 중…";
       const doSave = () => isNew ? sb.from(TABLE).insert(obj) : sb.from(TABLE).update(obj).eq("id", rec.id);

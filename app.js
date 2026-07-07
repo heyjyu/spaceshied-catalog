@@ -299,6 +299,16 @@ function loadData() {
 //        ② 지난 방문 데이터(localStorage)를 먼저 그려 즉시 표시 → 최신 도착하면 바뀐 경우만 조용히 교체
 //        (수정 반영: 최신 fetch가 항상 돌므로 저장 직후 값이 1초 내 반영. 관리자 저장 신호 시엔 softRefresh 즉시)
 const CATALOG_CACHE_KEY = "catalog_cache_v1";
+// DB 레코드 → 화면 행. __* 키는 헤더 밖(표·검색 비노출), 상세에서만 사용.
+function rowFromRec(rec, map) {
+  const o = {};
+  for (const [col, head] of Object.entries(map)) o[head] = rec[col] != null ? String(rec[col]) : "";
+  if (rec.id != null) o.__id = String(rec.id);                                    // 즐겨찾기 고유키
+  if (rec.color_chart != null) o.__colorChart = String(rec.color_chart);          // 중국 컬러차트
+  if (rec.color_chart_kr != null) o.__colorChartKr = String(rec.color_chart_kr);  // 한국 컬러차트
+  if (rec.aerial_img != null) o.__aerial = String(rec.aerial_img);                // 항공뷰
+  return o;
+}
 function applySupabaseData(cats, cols, prods) {
   categoryCfg = {};
   (cats || []).forEach((c) => { categoryCfg[c.key] = { label: c.label || "", sort: c.sort, visible: c.visible !== false }; });
@@ -306,14 +316,7 @@ function applySupabaseData(cats, cols, prods) {
   (cols || []).forEach((c) => { columnCfg[c.key] = { label: c.label || "", sort: c.sort, visible: c.visible !== false }; });
   const map = CONFIG.SUPABASE.COLUMN_MAP || {};   // {영문컬럼: 한글헤더}
   const headers = Object.values(map);              // 표시 순서 = 매핑 순서
-  const rows = (prods || []).map((rec) => {
-    const o = {};
-    for (const [col, head] of Object.entries(map)) o[head] = rec[col] != null ? String(rec[col]) : "";
-    if (rec.id != null) o.__id = String(rec.id);  // 즐겨찾기 고유키용(헤더 목록 밖이라 컬럼·검색엔 노출 안 됨)
-    if (rec.color_chart != null) o.__colorChart = String(rec.color_chart);  // 컬러차트 이미지(상세 컬러옵션 탭 전용)
-    return o;
-  });
-  ingest(headers, rows);
+  ingest(headers, (prods || []).map((rec) => rowFromRec(rec, map)));
 }
 function loadFromSupabase() {
   const s = CONFIG.SUPABASE;
@@ -355,12 +358,8 @@ function softRefresh() {
   })
     .then((r) => (r.ok ? r.json() : Promise.reject(new Error("HTTP " + r.status))))
     .then((data) => {
-      let rows = (data || []).map((rec) => {
-        const o = {};
-        for (const [col, head] of Object.entries(map)) o[head] = rec[col] != null ? String(rec[col]) : "";
-        if (rec.id != null) o.__id = String(rec.id);  // 즐겨찾기 고유키용
-        return o;
-      }).filter((r) => Object.keys(r).some((k) => k !== "__id" && String(r[k]).trim() !== ""));
+      let rows = (data || []).map((rec) => rowFromRec(rec, map))
+        .filter((r) => Object.keys(r).some((k) => k[0] !== "_" && String(r[k]).trim() !== ""));
       if (colKeys.image) {
         rows = rows.map((r, i) => [r, i]).sort((a, b) => {
           const ai = String(a[0][colKeys.image] || "").trim() ? 0 : 1;
@@ -1194,19 +1193,26 @@ function openDetail(r) {
   const st = STATUS_DEF[statusKey(r)];
   const colorFacet = facetCols.find((f) => f.derive === "color");
 
-  // ① 기본정보 속성 (이미지/이름/링크/색상/숨김 컬럼 제외 — 색상은 별도 탭)
+  // ① 기본정보 스펙 표 (카드 스펙 스트립과 동일 어휘)
   const connFacet = facetCols.find((f) => f.label === "호환");
-  const skip = new Set([colKeys.image, colKeys.name, colKeys.link, colKeys.price, "출시년월", "원가(CNY)",
-    (colorFacet && colorFacet.key), ...(CONFIG.HIDE_COLUMNS || [])].filter(Boolean));
-  const attrs = headersAll.filter((h) => !skip.has(h)).map((h) => {
-    let val = r[h];
-    if (h === colKeys.price) val = won(val);
-    else if (h === colKeys.stock) { const c = stockClass(val); val = c === "out" ? "품절 (0)" : (val ? `${val}개` : "-"); }
-    else if (connFacet && h === connFacet.key) { const stF = String(r["스트랩형태"] || "").trim(); val = esc(stF || connectorLabel(val)); }  // 스트랩형태 우선
-    else if (mf && h === mf.key) val = esc(connUniversalLabel(val));  // 기종 '공용'→커넥터 연결형
-    else val = esc(val);
-    return `<div class="attr"><div class="k">${esc(h)}</div><div class="v">${val || "-"}</div></div>`;
-  }).join("");
+  const connVal = connFacet ? String(r[connFacet.key] || "").trim() : "";
+  const universal = !connVal || /공용|공통|범용/.test(connVal);
+  const stField = String(r["스트랩형태"] || "").trim();
+  const isConn = stField ? /연결/.test(stField) : universal;
+  const shapeVal = String(r["형태"] || "").trim();
+  const connName = shapeVal
+    || (/러그/.test(connVal) ? "러그형" : /날개/.test(connVal) ? "날개형" : /원클릭/.test(connVal) ? "원클릭" : /원터치/.test(connVal) ? "원터치" : (universal ? "일반형" : "-"));
+  const memoVal = String(r["메모"] || "").trim();
+  const specRows = [
+    ["스트랩 구조", isConn ? "결합형" : "일체형"],
+    ["커넥터 타입", connName],
+    ["스트랩 너비", size || "-"],
+    ["재질", material || "-"],
+    ["고정 타입", String(r["체결"] || "").trim() || "-"],
+  ];
+  if (memoVal) specRows.push(["비고", memoVal]);
+  const attrs = specRows.map(([k, v]) =>
+    `<div class="attr"><div class="k">${esc(k)}</div><div class="v">${esc(v)}</div></div>`).join("");
 
   // ② 컬러 옵션
   const colorRaw = colorFacet ? String(r[colorFacet.key] || "").trim() : "";
@@ -1259,10 +1265,23 @@ function openDetail(r) {
     </div>
     <div class="detail-main">
       <div class="detail-imgcol">
-        ${img ? `<div class="detail-imgwrap" title="클릭하면 이미지 복사">
-          <img class="detail-img" src="${esc(img)}" alt="">
-          <div class="detail-copyhint"><span>📋 클릭하면 이미지 복사</span></div>
-        </div>` : '<div class="detail-img placeholder"></div>'}
+        ${(() => {
+          // 이미지 갤러리: 대표 + 중국/한국 컬러차트 + 항공뷰 (있는 것만 썸네일로)
+          const gal = [
+            ["대표", img],
+            ["중국 컬러차트", String(r.__colorChart || "").trim()],
+            ["한국 컬러차트", String(r.__colorChartKr || "").trim()],
+            ["항공뷰", String(r.__aerial || "").trim()],
+          ].filter(([, u]) => u);
+          if (!gal.length) return '<div class="detail-img placeholder"></div>';
+          const main = gal[0][1];
+          const thumbs = gal.length > 1 ? `<div class="detail-thumbs">${gal.map(([label, u], i) =>
+            `<img class="dthumb${i === 0 ? " on" : ""}" src="${esc(u)}" data-src="${esc(u)}" title="${esc(label)}" alt="${esc(label)}" loading="lazy">`).join("")}</div>` : "";
+          return `<div class="detail-imgwrap" title="클릭하면 이미지 복사">
+            <img class="detail-img" id="detailMainImg" src="${esc(main)}" alt="">
+            <div class="detail-copyhint"><span>📋 클릭하면 이미지 복사</span></div>
+          </div>${thumbs}`;
+        })()}
         <button class="detail-fav2${isFav(r) ? " on" : ""}" id="btnDetailFav">★ 즐겨찾기</button>
         ${isAdminLoggedIn() && r.__id ? `<a class="detail-edit-btn" href="admin.html?edit=${encodeURIComponent(r.__id)}">✏️ 관리자 수정</a>` : ""}
       </div>
@@ -1299,7 +1318,13 @@ function openDetail(r) {
     });
   });
   const dimg = detail.querySelector(".detail-imgwrap");
-  if (dimg && img) dimg.addEventListener("click", () => copyImageToClipboard(img));
+  const mainImg = detail.querySelector("#detailMainImg");
+  if (dimg && mainImg) dimg.addEventListener("click", () => copyImageToClipboard(mainImg.src));
+  // 썸네일 클릭 → 큰 이미지 교체
+  detail.querySelectorAll(".dthumb").forEach((t) => t.addEventListener("click", () => {
+    if (mainImg) mainImg.src = t.dataset.src;
+    detail.querySelectorAll(".dthumb").forEach((x) => x.classList.toggle("on", x === t));
+  }));
   $("btnCloseDetail").addEventListener("click", closeDetail);
   $("btnDetailFav").addEventListener("click", (e) => e.currentTarget.classList.toggle("on", toggleFav(r)));
   detail.querySelectorAll(".sim-card").forEach((el) => el.addEventListener("click", () => openDetail(reco[Number(el.dataset.ri)])));
