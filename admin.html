@@ -10,7 +10,7 @@
   <title>관리자 — 상품 관리</title>
   <!-- 테마: 모바일(≤860px) 라이트 고정, 데스크톱은 저장값(모든 페이지 동일 로직) -->
   <script>document.documentElement.dataset.theme = window.matchMedia("(max-width: 860px)").matches ? "light" : (localStorage.getItem("theme") || "light");</script>
-  <link rel="stylesheet" href="styles.css?v=87" />
+  <link rel="stylesheet" href="styles.css?v=88" />
   <style>
     .admin-wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
     .admin-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
@@ -301,7 +301,7 @@
         <button class="btn" id="valBtn" title="기종·호환·재질 등 필터 값 일괄 변경/정리">🏷️ 값 정리</button>
         <button class="btn" id="backupBtn" title="현재 DB 전체를 zip으로 백업 다운로드">💾 백업</button>
         <button class="btn" id="restoreBtn" title="백업 zip으로 DB 되돌리기">♻️ 복원</button>
-        <button class="btn" id="optBtn" title="예전에 올린 큰 이미지 일괄 축소(대표 900px·차트/추가 1400px, URL 유지)">🖼️ 이미지 최적화</button>
+        <button class="btn" id="optBtn" title="원본은 그대로 두고 카드용 400px 썸네일을 일괄 생성 — 카탈로그 사진 로딩 빨라짐">🖼️ 썸네일 생성</button>
         <input type="file" id="restoreFile" accept=".zip,.json" style="display:none">
         <button class="btn brand" id="addBtn">＋ 새 상품</button>
         <a class="btn" href="index.html"><span aria-hidden="true">🛍️</span> 카탈로그</a>
@@ -347,45 +347,35 @@
     } catch (e) { return fileOrBlob; }
   }
 
-  // 예전에 올린 큰 이미지 일괄 축소 (같은 경로 덮어써 URL 유지 → DB 수정 불필요)
-  //  대표 사진 900px / 컬러차트·추가 사진 1400px (글씨 읽혀야 해서 크게 유지)
+  // 카드용 썸네일 일괄 생성 — 원본은 손대지 않고 thumbs/<원본경로>에 400px 축소본을 따로 저장.
+  //  카탈로그 카드가 thumbs/ 를 우선 로드(없으면 원본 폴백)해서 사진 로딩이 빨라짐.
   async function optimizeImages() {
     const prefix = `${S.URL}/storage/v1/object/public/${BUCKET}/`;
-    const targets = new Map();   // path → maxSide
-    const addT = (u, maxSide) => {
-      if (u && String(u).startsWith(prefix)) {
-        const p = decodeURIComponent(String(u).slice(prefix.length).split("?")[0]);
-        targets.set(p, Math.max(targets.get(p) || 0, maxSide));
-      }
-    };
+    const targets = new Set();
     rows.forEach((r) => {
-      addT(r.image, 900);
-      addT(r.color_chart, 1400);
-      addT(r.color_chart_kr, 1400);
-      addT(r.aerial_img, 1400);
-      (Array.isArray(r.extra_images) ? r.extra_images : []).forEach((u) => addT(u, 1400));
+      const u = String(r.image || "");
+      if (u.startsWith(prefix) && !u.startsWith(prefix + "thumbs/"))
+        targets.add(decodeURIComponent(u.slice(prefix.length).split("?")[0]));
     });
-    if (!targets.size) { alert("Supabase에 올린 이미지가 없습니다."); return; }
-    if (!await uiConfirm(`Supabase 이미지 ${targets.size}장을 검사해 큰 것(150KB↑)만 축소합니다.\n대표 900px, 차트·추가 사진 1400px 기준. URL은 그대로 유지됩니다.\n\n※ 원본 해상도는 덮어써져 되돌릴 수 없습니다. 진행할까요?`, { okText: "최적화 시작" })) return;
+    if (!targets.size) { alert("Supabase에 올린 대표 이미지가 없습니다."); return; }
+    if (!await uiConfirm(`대표 이미지 ${targets.size}장의 카드용 썸네일(400px)을 생성합니다.\n원본은 그대로 보존되고, 카탈로그 카드만 가벼운 썸네일을 씁니다. 진행할까요?`, { okText: "썸네일 생성" })) return;
     const btn = document.getElementById("optBtn");
-    let done = 0, shrunk = 0, savedKB = 0, failed = 0;
-    for (const [path, maxSide] of targets) {
+    let done = 0, made = 0, failed = 0;
+    for (const path of targets) {
       done++;
       if (btn) btn.textContent = `🖼️ ${done}/${targets.size}…`;
       try {
         const resp = await fetch(prefix + encodeURIComponent(path).replace(/%2F/g, "/"));
         if (!resp.ok) { failed++; continue; }
         const blob = await resp.blob();
-        if (blob.size < 150 * 1024) continue;                 // 이미 가벼움
-        const small = await shrinkImage(blob, maxSide);
-        if (!small || small.size >= blob.size * 0.9) continue; // 효과 미미하면 스킵
-        const { error } = await sb.storage.from(BUCKET).upload(path, small, { upsert: true, contentType: "image/jpeg", cacheControl: "31536000" });
+        const th = await shrinkImage(blob, 400, 0.8);
+        const { error } = await sb.storage.from(BUCKET).upload("thumbs/" + path, th, { upsert: true, contentType: "image/jpeg", cacheControl: "31536000" });
         if (error) { failed++; continue; }
-        shrunk++; savedKB += Math.round((blob.size - small.size) / 1024);
+        made++;
       } catch (e) { failed++; }
     }
-    if (btn) btn.textContent = "🖼️ 이미지 최적화";
-    alert(`이미지 최적화 완료\n검사 ${targets.size}장 → 축소 ${shrunk}장 (${Math.round(savedKB / 102.4) / 10}MB 절약)${failed ? `\n실패 ${failed}장` : ""}\n\n※ 브라우저/CDN 캐시 때문에 반영까지 최대 1시간 걸릴 수 있습니다.`);
+    if (btn) btn.textContent = "🖼️ 썸네일 생성";
+    alert(`썸네일 생성 완료: ${made}/${targets.size}장${failed ? ` (실패 ${failed}장)` : ""}\n카탈로그 카드가 훨씬 가볍게 로드됩니다. 원본은 그대로입니다.`);
   }
 
   // ====== 백업 / 복원 ======
@@ -781,6 +771,11 @@
       const path = `${Date.now()}_${file.name.replace(/[^\w.\-]/g, "_")}`.replace(/\.\w+$/, "") + ".jpg";
       const { error } = await sb.storage.from(BUCKET).upload(path, small, { upsert: true, contentType: "image/jpeg", cacheControl: "31536000" });
       if (error) { document.getElementById("upErr").textContent = "업로드 실패: " + error.message; return; }
+      // 카드용 400px 썸네일도 함께 생성 (원본 보존 — 카탈로그 카드는 thumbs/ 를 우선 로드)
+      try {
+        const th = await shrinkImage(file, 400, 0.8);
+        await sb.storage.from(BUCKET).upload("thumbs/" + path, th, { upsert: true, contentType: "image/jpeg", cacheControl: "31536000" });
+      } catch (e) {}
       const url = sb.storage.from(BUCKET).getPublicUrl(path).data.publicUrl;
       document.getElementById("f_image").value = url;
       document.getElementById("imgPreview").src = url;

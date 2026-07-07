@@ -157,6 +157,15 @@ function isAdminLoggedIn() {
   } catch (e) { return false; }
 }
 
+// 카드용 썸네일 URL: Supabase 이미지는 thumbs/ 경로의 축소본을 우선 사용(원본 보존, 카드만 가볍게).
+// 썸네일이 아직 없으면 onerror 폴백으로 원본을 로드하므로 깨지지 않음.
+function thumbUrl(u) {
+  const marker = "/storage/v1/object/public/product-images/";
+  const s = String(u || "");
+  if (!s.includes(marker) || s.includes(marker + "thumbs/")) return s;
+  return s.replace(marker, marker + "thumbs/");
+}
+
 function won(v) {
   const n = Number(String(v).replace(/[^0-9.-]/g, ""));
   if (!isFinite(n) || String(v).trim() === "") return v ?? "";
@@ -955,7 +964,7 @@ function cardHTML(r, i) {
   const qb = (cls, ch, url) => `<a class="qb ${cls}${url ? "" : " off"}" ${url ? `href="${esc(url)}" target="_blank" rel="noopener"` : 'aria-disabled="true"'} onclick="event.stopPropagation()">${ch}</a>`;
   return `<div class="card" data-i="${i}">
     <button class="card-fav${isFav(r) ? " on" : ""}" data-i="${i}" aria-label="즐겨찾기">${isFav(r) ? "★" : "☆"}</button>
-    ${img ? `<img class="thumb" src="${esc(img)}" loading="lazy" alt="">`
+    ${img ? `<img class="thumb" src="${esc(thumbUrl(img))}" data-full="${esc(img)}" onerror="this.onerror=null;this.src=this.dataset.full" loading="lazy" alt="">`
           : '<div class="thumb"></div>'}
     <div class="body">
       <div class="card-chips">${devTag}</div>
@@ -1317,7 +1326,7 @@ function openDetail(r, activeTab) {
     const osub = facetCols.slice(0, 2).map((f) => o[f.key]).filter(Boolean).join(" · ");
     return `<div class="sim-card" data-ri="${ri}">
       ${removable ? `<button class="sim-del" data-id="${esc(o.__id)}" title="직접 추가 목록에서 빼기">✕</button>` : ""}
-      ${oi ? `<img src="${esc(oi)}" loading="lazy" alt="">` : '<div class="sim-noimg"></div>'}
+      ${oi ? `<img src="${esc(thumbUrl(oi))}" data-full="${esc(oi)}" onerror="this.onerror=null;this.src=this.dataset.full" loading="lazy" alt="">` : '<div class="sim-noimg"></div>'}
       <div class="sim-name">${esc(rowTitle(o))}</div><div class="sim-sub">${esc(osub)}</div></div>`;
   };
   const addHtml = adminMode
