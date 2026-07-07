@@ -436,9 +436,6 @@ main { padding: 18px 24px 48px; max-width: 1400px; margin: 0 auto; }
 .detail-fav2 { border: 1px solid var(--border); background: transparent; border-radius: var(--radius-sm);
   padding: 10px; font-size: 13px; font-weight: 600; color: var(--muted); cursor: pointer; }
 .detail-fav2.on { color: #f5b301; border-color: #f5b301; }
-.detail-share-btn { border: 1px solid var(--border); background: transparent; border-radius: var(--radius-sm);
-  padding: 10px; font-size: 13px; font-weight: 600; color: var(--muted); cursor: pointer; }
-.detail-share-btn:hover { color: var(--brand); border-color: var(--brand); }
 /* 관리자 전용: 상세에서 바로 수정 */
 .detail-edit-btn { display: block; text-align: center; margin-top: 8px; padding: 10px;
   border-radius: var(--radius-sm); background: var(--brand); color: #fff; font-size: 13px; font-weight: 700;

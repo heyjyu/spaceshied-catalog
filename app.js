@@ -122,17 +122,6 @@ function showToast(msg) {
   showToast._t = setTimeout(() => t.classList.remove("show"), 2000);
 }
 
-// 클립보드 API 미지원/실패 시 텍스트 복사 폴백(구형·비HTTPS 대비).
-function copyTextFallback(text, onOk) {
-  try {
-    const ta = document.createElement("textarea");
-    ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
-    document.body.appendChild(ta); ta.select();
-    document.execCommand("copy"); ta.remove();
-    if (onOk) onOk();
-  } catch (e) { showToast("복사 실패 — 주소창 링크를 직접 복사하세요"); }
-}
-
 // 이미지를 클립보드에 복사(붙여넣기 가능). jpg 등은 PNG로 변환(클립보드는 주로 image/png만 허용).
 async function copyImageToClipboard(url) {
   const toPng = async () => {
@@ -1402,7 +1391,6 @@ function openDetail(r, activeTab) {
           </div>${thumbs}`;
         })()}
         <button class="detail-fav2${isFav(r) ? " on" : ""}" id="btnDetailFav">★ 즐겨찾기</button>
-        ${r.__id != null ? `<button class="detail-share-btn" id="btnShareLink" title="이 상품으로 바로 열리는 링크 복사">🔗 링크 복사</button>` : ""}
         ${isAdminLoggedIn() && r.__id ? `<a class="detail-edit-btn" href="admin.html?edit=${encodeURIComponent(r.__id)}">✏️ 관리자 수정</a>` : ""}
       </div>
       <div class="detail-infocol">
@@ -1447,14 +1435,6 @@ function openDetail(r, activeTab) {
   }));
   $("btnCloseDetail").addEventListener("click", closeDetail);
   $("btnDetailFav").addEventListener("click", (e) => e.currentTarget.classList.toggle("on", toggleFav(r)));
-  const shareBtn = detail.querySelector("#btnShareLink");
-  if (shareBtn) shareBtn.addEventListener("click", () => {
-    const url = location.origin + location.pathname + location.search + "#p" + encodeURIComponent(r.__id);
-    const ok = () => showToast("링크 복사됨 — 붙여넣으면 이 상품이 바로 열려요");
-    if (navigator.clipboard && navigator.clipboard.writeText) {
-      navigator.clipboard.writeText(url).then(ok).catch(() => copyTextFallback(url, ok));
-    } else copyTextFallback(url, ok);
-  });
   detail.querySelectorAll(".sim-card").forEach((el) => el.addEventListener("click", () => openDetail(reco[Number(el.dataset.ri)])));
   // 직접 추가(큐레이션) — 검색해서 추가
   const addInput = detail.querySelector("#simAddInput");
