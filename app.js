@@ -307,7 +307,33 @@ function rowFromRec(rec, map) {
   if (rec.color_chart != null) o.__colorChart = String(rec.color_chart);          // 중국 컬러차트
   if (rec.color_chart_kr != null) o.__colorChartKr = String(rec.color_chart_kr);  // 한국 컬러차트
   if (rec.aerial_img != null) o.__aerial = String(rec.aerial_img);                // 항공뷰
+  if (Array.isArray(rec.related_ids)) o.__related = rec.related_ids.map(String);  // 직접 추가한 비슷한 제품 id들
   return o;
+}
+
+// 관리자 액세스 토큰(admin.html 로그인 세션 재사용) — 카탈로그에서 큐레이션 저장용
+function adminToken() {
+  try {
+    const ref = ((CONFIG.SUPABASE || {}).URL || "").match(/https?:\/\/([^.]+)\./);
+    if (!ref) return null;
+    const t = JSON.parse(localStorage.getItem(`sb-${ref[1]}-auth-token`) || "null");
+    const at = t && (t.access_token || (t.currentSession && t.currentSession.access_token));
+    const exp = t && (t.expires_at || (t.currentSession && t.currentSession.expires_at));
+    return at && (!exp || exp * 1000 > Date.now()) ? at : null;
+  } catch (e) { return null; }
+}
+// 비슷한 제품 직접 추가 목록(related_ids) 저장
+async function saveRelated(r, ids) {
+  const s = CONFIG.SUPABASE;
+  const tok = adminToken();
+  if (!tok) throw new Error("관리자 로그인이 필요합니다");
+  const resp = await fetch(`${s.URL}/rest/v1/${s.TABLE || "products"}?id=eq.${encodeURIComponent(r.__id)}`, {
+    method: "PATCH",
+    headers: { apikey: s.ANON_KEY, Authorization: `Bearer ${tok}`, "Content-Type": "application/json", Prefer: "return=minimal" },
+    body: JSON.stringify({ related_ids: ids.map(Number) }),
+  });
+  if (!resp.ok) throw new Error("HTTP " + resp.status);
+  r.__related = ids.map(String);
 }
 function applySupabaseData(cats, cols, prods) {
   categoryCfg = {};
@@ -1121,29 +1147,58 @@ function moveSuggest(delta) {
 }
 
 // ---- 비슷한 제품 찾기 (비주얼 비교용) ------------------------------
+// 어디에나 붙는 범용 단어는 유사도 판단에서 제외 (이것 때문에 '안 비슷한' 결과가 섞였음)
+const SIM_STOPWORDS = new Set(["스트랩", "밴드", "호환", "워치", "시계줄", "손목", "용"]);
 function nameTokens(s) {
-  return new Set(String(s || "").split(/\s+/).filter((t) => t.length > 1));
+  return new Set(String(s || "").split(/\s+/).filter((t) => t.length > 1 && !SIM_STOPWORDS.has(t)));
+}
+// 큐레이션 학습: 직접 추가된 쌍들의 라인(베이스그룹) 조합을 집계 →
+// "이 라인을 보던 사람에게 저 라인을 붙여줬다"는 이력이 있으면 같은 라인 조합에 가점
+let _lineAff = null, _lineAffN = -1;
+function lineAffinity() {
+  if (_lineAff && _lineAffN === allRows.length) return _lineAff;
+  const byId = {};
+  allRows.forEach((x) => { if (x.__id) byId[x.__id] = x; });
+  const m = {};
+  allRows.forEach((a) => {
+    (a.__related || []).forEach((id) => {
+      const b = byId[id]; if (!b) return;
+      const ka = String(a["베이스그룹"] || "").trim(), kb = String(b["베이스그룹"] || "").trim();
+      if (!ka || !kb || ka === kb) return;
+      m[ka + "→" + kb] = (m[ka + "→" + kb] || 0) + 1;
+      m[kb + "→" + ka] = (m[kb + "→" + ka] || 0) + 1;
+    });
+  });
+  _lineAff = m; _lineAffN = allRows.length;
+  return m;
 }
 function getSimilar(r, limit = 8, exclude = null) {
-  const facetKeys = facetCols.map((f) => f.key);
+  const aff = lineAffinity();
+  const myLine = String(r["베이스그룹"] || "").trim();
+  const myMat = String(r["재질"] || "").trim();
+  const myBuckle = String(r["체결"] || "").trim();
+  const myShape = String(r["형태"] || "").trim();
+  const mySize = firstMm(r["규격"]) || firstMm(r["베이스규격"]) || "";
   const baseTokens = nameTokens(rowTitle(r));
   const scored = [];
   for (const o of allRows) {
     if (o === r) continue;
     if (exclude && exclude.has(o)) continue;
     let s = 0;
-    // 같은 기종/재질/규격 등 facet 일치 가중
-    for (const k of facetKeys) {
-      if (r[k] && o[k] && String(r[k]) === String(o[k])) {
-        s += (k === (facetCols[0] && facetCols[0].key)) ? 3 : 2;
-      }
-    }
-    // 제품명 단어 겹침
+    const oLine = String(o["베이스그룹"] || "").trim();
+    if (myLine && oLine === myLine) s += 6;                       // 같은 라인(베이스 디자인) = 가장 비슷
+    else if (myLine && oLine && aff[myLine + "→" + oLine]) s += Math.min(4, 1 + aff[myLine + "→" + oLine]);  // 큐레이션 학습 가점
+    if (myMat && String(o["재질"] || "").trim() === myMat) s += 3;   // 재질(비주얼 결)
+    if (myBuckle && String(o["체결"] || "").trim() === myBuckle) s += 2;
+    if (myShape && String(o["형태"] || "").trim() === myShape) s += 1;
+    const oSize = firstMm(o["규격"]) || firstMm(o["베이스규격"]) || "";
+    if (mySize && oSize === mySize) s += 2;
+    // 제품명 단어 겹침 (범용 단어 제외)
     const ot = nameTokens(rowTitle(o));
     let overlap = 0;
     baseTokens.forEach((t) => { if (ot.has(t)) overlap++; });
     s += overlap * 2;
-    if (s > 0) scored.push([s, o]);
+    if (s >= 4) scored.push([s, o]);   // 낮은 점수(우연 일치)는 잘라 '안 비슷한' 결과 배제
   }
   scored.sort((a, b) => b[0] - a[0]);
   return scored.slice(0, limit).map((x) => x[1]);
@@ -1181,8 +1236,8 @@ function getCompatible(r, limit = 6) {
   return scored.slice(0, limit).map((x) => x[1]);
 }
 
-// ---- 상세 보기 (탭형: 기본정보 / 컬러옵션 / 호환 / 비슷한) -----------
-function openDetail(r) {
+// ---- 상세 보기 (탭형: 기본정보 / 컬러옵션 / 비슷한) -----------------
+function openDetail(r, activeTab) {
   const img = colKeys.image ? r[colKeys.image] : "";
   const link = colKeys.link ? r[colKeys.link] : "";
   const coupangUrl = String(r["쿠팡링크"] || "").trim();
@@ -1231,26 +1286,31 @@ function openDetail(r) {
     ? `${chartHtml}${cc ? `<div class="detail-cc">🎨 색상 ${cc}종</div>` : ""}${swHtml}${colorRaw ? `<div class="dc-list">${esc(colorRaw)}</div>` : ""}`
     : `<div class="dpane-empty">등록된 색상 정보가 없습니다.</div>`;
 
-  // ③ 호환 / ④ 비슷한
-  const compatible = getCompatible(r);
-  const similar = getSimilar(r, 8, new Set(compatible));
-  const reco = [...compatible, ...similar];
-  const card = (o, ri) => {
+  // ③ 비슷한 제품: 직접 추가(큐레이션) 우선 + 자동 추천
+  const byId = {};
+  allRows.forEach((x) => { if (x.__id) byId[x.__id] = x; });
+  const curated = (r.__related || []).map((id) => byId[id]).filter(Boolean);
+  const similar = getSimilar(r, 8, new Set([r, ...curated]));
+  const reco = [...curated, ...similar];
+  const adminMode = isAdminLoggedIn() && r.__id;
+  const card = (o, ri, removable) => {
     const oi = colKeys.image ? o[colKeys.image] : "";
     const osub = facetCols.slice(0, 2).map((f) => o[f.key]).filter(Boolean).join(" · ");
     return `<div class="sim-card" data-ri="${ri}">
+      ${removable ? `<button class="sim-del" data-id="${esc(o.__id)}" title="직접 추가 목록에서 빼기">✕</button>` : ""}
       ${oi ? `<img src="${esc(oi)}" loading="lazy" alt="">` : '<div class="sim-noimg"></div>'}
       <div class="sim-name">${esc(rowTitle(o))}</div><div class="sim-sub">${esc(osub)}</div></div>`;
   };
-  const grid = (list, off) => `<div class="similar-grid">${list.map((o, i) => card(o, off + i)).join("")}</div>`;
-  const b = compatBasis(r);
-  const basis = b.specific ? esc(b.myModel) : (b.mySize || "");
-  const compatPane = compatible.length
-    ? `<div class="similar-title">🔗 ${basis ? esc(basis) + "에 " : ""}맞는 다른 스트랩 ${compatible.length}개</div>${grid(compatible, 0)}`
-    : `<div class="dpane-empty">호환 정보를 찾지 못했습니다.</div>`;
-  const simPane = similar.length
-    ? `<div class="similar-title">🔍 비슷한 디자인 ${similar.length}개</div>${grid(similar, compatible.length)}`
-    : `<div class="dpane-empty">비슷한 제품이 없습니다.</div>`;
+  const addHtml = adminMode
+    ? `<div class="sim-add"><input id="simAddInput" placeholder="🔎 상품명 검색해서 직접 추가…" autocomplete="off"><div id="simAddResults" class="sim-add-results"></div></div>`
+    : "";
+  const curatedHtml = curated.length
+    ? `<div class="similar-title">📌 직접 추가한 제품 ${curated.length}개</div><div class="similar-grid">${curated.map((o, i) => card(o, i, adminMode)).join("")}</div>`
+    : "";
+  const autoHtml = similar.length
+    ? `<div class="similar-title">🔍 비슷한 디자인 ${similar.length}개</div><div class="similar-grid">${similar.map((o, i) => card(o, curated.length + i, false)).join("")}</div>`
+    : (curated.length ? "" : `<div class="dpane-empty">비슷한 제품이 없습니다.</div>`);
+  const simPane = addHtml + curatedHtml + autoHtml;
 
   const chips = [
     `<span class="dchip ${st.cls}">${st.label}</span>`,
@@ -1332,6 +1392,44 @@ function openDetail(r) {
   $("btnCloseDetail").addEventListener("click", closeDetail);
   $("btnDetailFav").addEventListener("click", (e) => e.currentTarget.classList.toggle("on", toggleFav(r)));
   detail.querySelectorAll(".sim-card").forEach((el) => el.addEventListener("click", () => openDetail(reco[Number(el.dataset.ri)])));
+  // 직접 추가(큐레이션) — 검색해서 추가
+  const addInput = detail.querySelector("#simAddInput");
+  if (addInput) {
+    const results = detail.querySelector("#simAddResults");
+    addInput.addEventListener("input", () => {
+      const q = normKey(addInput.value);
+      results.innerHTML = "";
+      if (q.length < 2) return;
+      const cur = new Set([String(r.__id), ...(r.__related || [])]);
+      const hits = allRows.filter((o) => o.__id && !cur.has(o.__id) && normKey(rowTitle(o)).includes(q)).slice(0, 6);
+      results.innerHTML = hits.length ? hits.map((o) => {
+        const oi = colKeys.image ? o[colKeys.image] : "";
+        return `<div class="sim-add-item" data-id="${esc(o.__id)}">${oi ? `<img src="${esc(oi)}" alt="">` : '<span class="sim-noimg-s"></span>'}<span>${esc(rowTitle(o))}</span><b>＋</b></div>`;
+      }).join("") : `<div class="sim-add-empty">검색 결과 없음</div>`;
+      results.querySelectorAll(".sim-add-item").forEach((el) => el.addEventListener("click", async () => {
+        try {
+          await saveRelated(r, [...(r.__related || []), el.dataset.id]);
+          _lineAff = null;   // 큐레이션 학습 캐시 갱신
+          showToast("직접 추가됨");
+          openDetail(r, "similar");
+        } catch (e) { showToast("저장 실패: " + e.message); }
+      }));
+    });
+  }
+  // 직접 추가 목록에서 빼기
+  detail.querySelectorAll(".sim-del").forEach((el) => el.addEventListener("click", async (e) => {
+    e.stopPropagation();
+    try {
+      await saveRelated(r, (r.__related || []).filter((id) => id !== el.dataset.id));
+      _lineAff = null;
+      openDetail(r, "similar");
+    } catch (e2) { showToast("저장 실패: " + e2.message); }
+  }));
+  // 재오픈 시 탭 복원 (추가/삭제 후 비슷한 제품 탭 유지)
+  if (activeTab) {
+    const tb = detail.querySelector(`.dtab[data-tab="${activeTab}"]`);
+    if (tb) tb.click();
+  }
   detail.classList.remove("hidden");
   $("overlay").classList.remove("hidden");
 }
