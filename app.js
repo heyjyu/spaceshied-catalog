@@ -295,49 +295,51 @@ function loadData() {
 }
 
 // Supabase REST 에서 상품을 읽어 카탈로그 표시 (영문 컬럼 → 한글 헤더 매핑)
-//  먼저 categories(사이드바 순서/이름/노출) 로드 → 그다음 상품
+//  속도: ① categories/column_config/products 3개를 병렬 요청(순차 대비 ~2배)
+//        ② 지난 방문 데이터(localStorage)를 먼저 그려 즉시 표시 → 최신 도착하면 바뀐 경우만 조용히 교체
+//        (수정 반영: 최신 fetch가 항상 돌므로 저장 직후 값이 1초 내 반영. 관리자 저장 신호 시엔 softRefresh 즉시)
+const CATALOG_CACHE_KEY = "catalog_cache_v1";
+function applySupabaseData(cats, cols, prods) {
+  categoryCfg = {};
+  (cats || []).forEach((c) => { categoryCfg[c.key] = { label: c.label || "", sort: c.sort, visible: c.visible !== false }; });
+  columnCfg = {};
+  (cols || []).forEach((c) => { columnCfg[c.key] = { label: c.label || "", sort: c.sort, visible: c.visible !== false }; });
+  const map = CONFIG.SUPABASE.COLUMN_MAP || {};   // {영문컬럼: 한글헤더}
+  const headers = Object.values(map);              // 표시 순서 = 매핑 순서
+  const rows = (prods || []).map((rec) => {
+    const o = {};
+    for (const [col, head] of Object.entries(map)) o[head] = rec[col] != null ? String(rec[col]) : "";
+    if (rec.id != null) o.__id = String(rec.id);  // 즐겨찾기 고유키용(헤더 목록 밖이라 컬럼·검색엔 노출 안 됨)
+    if (rec.color_chart != null) o.__colorChart = String(rec.color_chart);  // 컬러차트 이미지(상세 컬러옵션 탭 전용)
+    return o;
+  });
+  ingest(headers, rows);
+}
 function loadFromSupabase() {
   const s = CONFIG.SUPABASE;
-  fetch(`${s.URL}/rest/v1/categories?select=key,label,sort,visible`, {
-    headers: { apikey: s.ANON_KEY, Authorization: `Bearer ${s.ANON_KEY}` },
-  })
-    .then((r) => (r.ok ? r.json() : []))
-    .catch(() => [])
-    .then((cats) => {
-      categoryCfg = {};
-      (cats || []).forEach((c) => { categoryCfg[c.key] = { label: c.label || "", sort: c.sort, visible: c.visible !== false }; });
-      // 표 컬럼 설정(순서/이름/노출) 로드 → 그다음 상품
-      return fetch(`${s.URL}/rest/v1/column_config?select=key,label,sort,visible`, {
-        headers: { apikey: s.ANON_KEY, Authorization: `Bearer ${s.ANON_KEY}` },
-      }).then((r) => (r.ok ? r.json() : [])).catch(() => []);
-    })
-    .then((cols) => {
-      columnCfg = {};
-      (cols || []).forEach((c) => { columnCfg[c.key] = { label: c.label || "", sort: c.sort, visible: c.visible !== false }; });
-      loadProductsFromSupabase();
-    });
-}
-function loadProductsFromSupabase() {
-  const s = CONFIG.SUPABASE;
-  const map = s.COLUMN_MAP || {};            // {영문컬럼: 한글헤더}
-  const headers = Object.values(map);        // 표시 순서 = 매핑 순서
+  const H = { headers: { apikey: s.ANON_KEY, Authorization: `Bearer ${s.ANON_KEY}` } };
   const order = s.ORDER ? `&order=${encodeURIComponent(s.ORDER)}` : "";
-  fetch(`${s.URL}/rest/v1/${s.TABLE || "products"}?select=*${order}`, {
-    headers: { apikey: s.ANON_KEY, Authorization: `Bearer ${s.ANON_KEY}` },
-  })
-    .then((r) => { if (!r.ok) throw new Error("HTTP " + r.status); return r.json(); })
-    .then((data) => {
-      const rows = (data || []).map((rec) => {
-        const o = {};
-        for (const [col, head] of Object.entries(map)) o[head] = rec[col] != null ? String(rec[col]) : "";
-        if (rec.id != null) o.__id = String(rec.id);  // 즐겨찾기 고유키용(헤더 목록 밖이라 컬럼·검색엔 노출 안 됨)
-        if (rec.color_chart != null) o.__colorChart = String(rec.color_chart);  // 컬러차트 이미지(헤더 밖 → 표/검색 비노출, 상세 컬러옵션 탭에서만 사용)
-        return o;
-      });
-      ingest(headers, rows);
+  // ① 캐시 먼저 그리기 (재방문 시 체감 0초)
+  let cachedRaw = null;
+  try { cachedRaw = localStorage.getItem(CATALOG_CACHE_KEY); } catch (e) {}
+  if (cachedRaw) {
+    try { const c = JSON.parse(cachedRaw); applySupabaseData(c.cats, c.cols, c.prods); }
+    catch (e) { cachedRaw = null; }
+  }
+  // ② 3개 병렬 fetch → 캐시와 다르면 조용히 교체 + 캐시 저장
+  const j = (u) => fetch(u, H).then((r) => (r.ok ? r.json() : Promise.reject(new Error("HTTP " + r.status))));
+  Promise.all([
+    j(`${s.URL}/rest/v1/categories?select=key,label,sort,visible`).catch(() => []),
+    j(`${s.URL}/rest/v1/column_config?select=key,label,sort,visible`).catch(() => []),
+    j(`${s.URL}/rest/v1/${s.TABLE || "products"}?select=*${order}`),
+  ])
+    .then(([cats, cols, prods]) => {
+      const fresh = JSON.stringify({ cats, cols, prods });
+      try { localStorage.setItem(CATALOG_CACHE_KEY, fresh); } catch (e) {}
+      if (!cachedRaw || fresh !== cachedRaw) applySupabaseData(cats, cols, prods);
     })
     .catch((err) => {
-      setStatus("Supabase 불러오기 실패: " + err.message +
+      if (!cachedRaw) setStatus("Supabase 불러오기 실패: " + err.message +
         "\nconfig.js 의 SUPABASE.URL/ANON_KEY/TABLE 과 RLS(공개 읽기) 설정을 확인하세요.", true);
     });
 }
