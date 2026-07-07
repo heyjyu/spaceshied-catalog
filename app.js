@@ -663,12 +663,14 @@ function buildView(rows) {
   });
 
   table.on("tableBuilt", () => {
+    const restored = restoreFiltersFromHash(); // 공유 링크/새로고침의 #f=… 를 setFilter 전에 복원
     table.setFilter(matchRow);
     renderStats();
     updateFilterCount();
     updateFavUI();
     renderCatNav();
     setView(viewMode); // 모바일 기본 갤러리 등 현재 뷰모드 반영
+    if (restored && filterState.sort) applySort(); // 복원된 정렬 반영(데이터 교체)
     routeFromHash();   // 공유 링크(#p{id})로 들어왔으면 데이터 준비된 지금 상세 열기
   });
   table.on("rowClick", (e, row) => {
@@ -705,6 +707,7 @@ function applyFilters() {
   renderStats();
   updateFilterCount();
   if (viewMode === "gallery") renderGallery();
+  updateFilterHash();
 }
 
 // ---- 정렬 ----------------------------------------------------------
@@ -750,6 +753,7 @@ function applySort() {
   table.replaceData(sortedRows(allRows, filterState.sort)).then(() => {
     renderStats();
     if (viewMode === "gallery") renderGallery();
+    updateFilterHash();
   });
 }
 
@@ -795,7 +799,9 @@ function renderActiveChips() {
   const items = chipItems();
   bar.classList.toggle("hidden", items.length === 0);
   if (!items.length) { bar.innerHTML = ""; return; }
-  bar.innerHTML = items.map((c) =>
+  // 결과 개수 — 모바일에선 사이드바 통계가 안 보여서 여기서 알려줌
+  const n = table ? table.getData("active").length : null;
+  bar.innerHTML = (n != null ? `<span class="achip-count">${n.toLocaleString("ko-KR")}개 표시 중</span>` : "") + items.map((c) =>
     `<span class="achip"><span class="achip-l">${esc(c.label)}</span>
       <button class="achip-x" data-t="${c.t}" data-key="${esc(c.key || "")}" aria-label="${esc(c.label)} 해제">✕</button></span>`
   ).join("") + (items.length >= 2 ? `<button class="achip-clear" id="achipClear">전체 해제</button>` : "");
@@ -828,6 +834,51 @@ function resetAllFilters() {
   applyFilters();
 }
 window._resetFilters = resetAllFilters; // Tabulator placeholder(문자열 HTML)의 onclick에서 사용
+
+// ---- 필터 상태 ↔ URL 해시 (#f=…) ------------------------------------
+// 새로고침해도 필터 유지 + "필터된 목록" 자체를 링크로 공유 가능.
+// 상세(#p{id})와 해시를 나눠 쓴다: 상세가 열리면 #p가 우선, 닫히면 #f 복원.
+function filtersToHash() {
+  const p = new URLSearchParams();
+  if (filterState.search) p.set("q", filterState.search);
+  if (filterState.category) p.set("cat", filterState.category);
+  if (filterState.lifecycle) p.set("st", filterState.lifecycle);
+  if (filterState.favOnly) p.set("fav", "1");
+  if (filterState.stock) p.set("stock", filterState.stock);
+  if (filterState.sort) p.set("sort", filterState.sort);
+  for (const f of facetCols) {
+    const v = filterState.facets[f.key];
+    if (v) p.set(f.label, v);   // 키는 facet 라벨(기종/재질…) — 사람이 읽어도 뜻이 보임
+  }
+  const s = p.toString();
+  return s ? "#f=" + s : "";
+}
+// 히스토리 항목을 쌓지 않고(replaceState) 현재 주소만 갱신 — 뒤로가기가 필터 단계를 되감지 않게
+function updateFilterHash() {
+  if (_openId != null || /^#p/.test(location.hash)) return;  // 상세 해시가 점유 중
+  const want = filtersToHash();
+  if ((location.hash || "") === want) return;
+  history.replaceState(null, "", location.pathname + location.search + want);
+}
+// 진입/새로고침 시 #f=… 를 filterState + UI(입력창·셀렉트)에 복원. 복원했으면 true.
+function restoreFiltersFromHash() {
+  const m = (location.hash || "").match(/^#f=(.+)$/);
+  if (!m) return false;
+  let p;
+  try { p = new URLSearchParams(m[1]); } catch (e) { return false; }
+  filterState.search = p.get("q") || "";
+  filterState.category = p.get("cat") || "";
+  filterState.lifecycle = p.get("st") || "";
+  filterState.favOnly = p.get("fav") === "1";
+  filterState.stock = p.get("stock") || "";
+  filterState.sort = p.get("sort") || "";
+  for (const f of facetCols) filterState.facets[f.key] = p.get(f.label) || "";
+  $("search").value = filterState.search;
+  $("stockFilter").value = filterState.stock;
+  const ss = $("sortSelect"); if (ss) ss.value = filterState.sort;
+  document.querySelectorAll("select.facet-select").forEach((s) => { s.value = filterState.facets[s.dataset.key] || ""; });
+  return true;
+}
 
 function clearFilters() {
   filterState.search = "";
@@ -1384,6 +1435,13 @@ function getCompatible(r, limit = 6) {
 }
 
 // ---- 상세 보기 (탭형: 기본정보 / 컬러옵션 / 비슷한) -----------------
+// 이전/다음 탐색용: 지금 화면에 보이는 순서(필터+정렬 반영) 그대로
+function detailNavList() {
+  if (viewMode === "gallery" && galleryRows.length) return galleryRows;
+  return table ? table.getData("active") : allRows;
+}
+let _detailNav = false;   // ←/→ 탐색 중이면 해시를 replaceState로 (히스토리에 상품마다 안 쌓이게)
+
 function openDetail(r, activeTab) {
   const img = colKeys.image ? r[colKeys.image] : "";
   const link = colKeys.link ? r[colKeys.link] : "";
@@ -1464,13 +1522,24 @@ function openDetail(r, activeTab) {
     size ? `<span class="dchip">${esc(size)}</span>` : "",
   ].filter(Boolean).join("");
 
+  // 이전/다음 탐색 (현재 필터·정렬 순서 기준). Tabulator getData가 사본을 줄 수 있어 id로도 대조.
+  const navList = detailNavList();
+  let navIdx = navList.indexOf(r);
+  if (navIdx < 0 && r.__id != null) navIdx = navList.findIndex((x) => x.__id != null && String(x.__id) === String(r.__id));
+  const navHtml = (navIdx >= 0 && navList.length > 1) ? `
+      <div class="detail-nav">
+        <button class="dnav" id="btnDetailPrev" ${navIdx > 0 ? "" : "disabled"} aria-label="이전 상품">‹</button>
+        <span class="dnav-pos">${navIdx + 1} / ${navList.length}</span>
+        <button class="dnav" id="btnDetailNext" ${navIdx < navList.length - 1 ? "" : "disabled"} aria-label="다음 상품">›</button>
+      </div>` : "";
+
   $("detail").innerHTML = `
     <div class="detail-tabbar">
       <div class="detail-tabs">
         <button class="dtab active" data-tab="info">기본 정보</button>
         <button class="dtab" data-tab="color">컬러 옵션</button>
         <button class="dtab" data-tab="similar">비슷한 제품</button>
-      </div>
+      </div>${navHtml}
       <button class="dtab-close" id="btnCloseDetail" aria-label="닫기">✕</button>
     </div>
     <div class="detail-main">
@@ -1579,14 +1648,32 @@ function openDetail(r, activeTab) {
     const tb = detail.querySelector(`.dtab[data-tab="${activeTab}"]`);
     if (tb) tb.click();
   }
+  // 이전/다음 버튼 + 스크롤 맨 위로
+  const navTo = (i) => {
+    const nr = navList[i];
+    if (!nr) return;
+    _detailNav = true;
+    try { openDetail(nr); } finally { _detailNav = false; }
+    detail.scrollTop = 0;
+  };
+  const pv = detail.querySelector("#btnDetailPrev");
+  const nx = detail.querySelector("#btnDetailNext");
+  if (pv) pv.addEventListener("click", () => navTo(navIdx - 1));
+  if (nx) nx.addEventListener("click", () => navTo(navIdx + 1));
+
   detail.classList.remove("hidden");
   $("overlay").classList.remove("hidden");
+  document.title = `${rowTitle(r)} — ${CONFIG.TITLE || "상품 카탈로그"}`;
 
   // 주소에 #p{id} 반영 → 링크 공유 + 뒤로가기로 상세 닫기. (id 없는 CSV/데모 행은 생략)
   _openId = r.__id != null ? String(r.__id) : null;
   if (_openId != null) {
     const want = "#p" + encodeURIComponent(_openId);
-    if (location.hash !== want) location.hash = want;   // 히스토리 항목 추가 → 뒤로가기=닫기
+    if (location.hash !== want) {
+      // ←/→ 넘기기는 항목 교체(replaceState) — 안 그러면 뒤로가기가 본 상품을 전부 되감음
+      if (_detailNav && /^#p/.test(location.hash)) history.replaceState(null, "", location.pathname + location.search + want);
+      else location.hash = want;   // 히스토리 항목 추가 → 뒤로가기=닫기
+    }
   }
 }
 
@@ -1594,8 +1681,9 @@ function closeDetail() {
   $("detail").classList.add("hidden");
   $("overlay").classList.add("hidden");
   _openId = null;
-  // 상세용 해시(#p…)만 제거(히스토리 항목 추가 없이). 다른 해시는 건드리지 않음.
-  if (/^#p/.test(location.hash)) history.replaceState(null, "", location.pathname + location.search);
+  document.title = CONFIG.TITLE || "상품 카탈로그";
+  // 상세용 해시(#p…)만 제거(히스토리 항목 추가 없이). 필터 해시(#f…)는 되살림.
+  if (/^#p/.test(location.hash)) history.replaceState(null, "", location.pathname + location.search + filtersToHash());
 }
 
 // 현재 주소 해시(#p{id})에 맞춰 상세를 열거나 닫는다. 뒤로/앞으로·공유링크 진입·최초 로드에 사용.
@@ -1713,7 +1801,34 @@ function init() {
   }
 
   $("overlay").addEventListener("click", closeDetail);
-  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDetail(); });
+  document.addEventListener("keydown", (e) => {
+    if (e.key === "Escape") { closeDetail(); return; }
+    // 상세 열려 있으면 ←/→ 로 이전/다음 상품 (입력 중일 땐 제외)
+    if ((e.key === "ArrowLeft" || e.key === "ArrowRight") && !$("detail").classList.contains("hidden")) {
+      if (/INPUT|TEXTAREA|SELECT/.test(e.target.tagName)) return;
+      const b = $(e.key === "ArrowLeft" ? "btnDetailPrev" : "btnDetailNext");
+      if (b && !b.disabled) { e.preventDefault(); b.click(); }
+    }
+  });
+  // 모바일: 상세에서 좌우 스와이프 = 이전/다음 상품
+  {
+    const detEl = $("detail");
+    let tx = 0, ty = 0;
+    detEl.addEventListener("touchstart", (e) => { tx = e.touches[0].clientX; ty = e.touches[0].clientY; }, { passive: true });
+    detEl.addEventListener("touchend", (e) => {
+      const dx = e.changedTouches[0].clientX - tx, dy = e.changedTouches[0].clientY - ty;
+      if (Math.abs(dx) > 70 && Math.abs(dy) < 50) {
+        const b = $(dx < 0 ? "btnDetailNext" : "btnDetailPrev");
+        if (b && !b.disabled) b.click();
+      }
+    }, { passive: true });
+  }
+  // 맨 위로 버튼 (긴 목록 스크롤 복귀)
+  const stBtn = $("btnScrollTop");
+  if (stBtn) {
+    stBtn.addEventListener("click", () => window.scrollTo({ top: 0, behavior: "smooth" }));
+    window.addEventListener("scroll", () => stBtn.classList.toggle("hidden", window.scrollY < 800), { passive: true });
+  }
 
   // 상세 링크 공유(#p{id}) 라우팅.
   // 공유 링크로 바로 진입한 경우, base 진입점을 히스토리에 깔아 뒤로가기=상세 닫기(사이트 이탈 아님)로 만든다.

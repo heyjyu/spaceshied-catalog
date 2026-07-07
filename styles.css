@@ -865,3 +865,33 @@ main { padding: 18px 24px 48px; max-width: 1400px; margin: 0 auto; }
 }
 @keyframes skel-shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
 @media (prefers-reduced-motion: reduce) { .skel-img, .skel-line { animation: none; } }
+
+/* ============================================================
+   UX 개선 2차 (v97): 상세 이전/다음 · 맨 위로 · 결과 개수
+   ============================================================ */
+/* 상세 이전/다음 (탭바 안) */
+.detail-nav { display: flex; align-items: center; gap: 4px; margin-left: auto; padding-right: 6px; }
+.dnav {
+  border: 1px solid var(--border); background: var(--panel); border-radius: 50%;
+  width: 30px; height: 30px; font-size: 17px; line-height: 1; cursor: pointer;
+  color: var(--text); display: inline-flex; align-items: center; justify-content: center;
+  padding: 0 0 2px;
+}
+.dnav:hover:not(:disabled) { background: var(--brand-soft); border-color: var(--brand); color: var(--brand); }
+.dnav:disabled { opacity: .3; cursor: default; }
+.dnav-pos { font-size: 12px; color: var(--muted); min-width: 52px; text-align: center; font-variant-numeric: tabular-nums; }
+@media (max-width: 640px) { .dnav-pos { min-width: 44px; } }
+
+/* 맨 위로 버튼 */
+.scroll-top {
+  position: fixed; right: 18px; bottom: 22px; z-index: 15;
+  width: 44px; height: 44px; border-radius: 50%;
+  border: 1px solid var(--border); background: var(--panel); color: var(--text);
+  font-size: 18px; cursor: pointer; box-shadow: var(--shadow);
+  transition: opacity .18s, transform .18s;
+}
+.scroll-top:hover { background: var(--brand); color: #fff; border-color: var(--brand); }
+.scroll-top.hidden { opacity: 0; pointer-events: none; transform: translateY(8px); display: block; }
+
+/* 칩 바 결과 개수 */
+.achip-count { font-size: 13px; font-weight: 700; color: var(--text); margin-right: 2px; }
