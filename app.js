@@ -5,6 +5,7 @@
 
 let table = null;        // Tabulator 인스턴스
 let allRows = [];        // 원본 데이터
+let _openId = null;      // 현재 열린 상세의 상품 id(#p{id} 해시 라우팅용, 없으면 null)
 let headersAll = [];     // 전체 헤더 순서
 let colKeys = {};        // 특수 컬럼 키 {image, link, price, stock, name}
 let facetCols = [];      // [{label, key}] 자동감지된 필터 컬럼
@@ -119,6 +120,17 @@ function showToast(msg) {
   t.classList.add("show");
   clearTimeout(showToast._t);
   showToast._t = setTimeout(() => t.classList.remove("show"), 2000);
+}
+
+// 클립보드 API 미지원/실패 시 텍스트 복사 폴백(구형·비HTTPS 대비).
+function copyTextFallback(text, onOk) {
+  try {
+    const ta = document.createElement("textarea");
+    ta.value = text; ta.style.position = "fixed"; ta.style.opacity = "0";
+    document.body.appendChild(ta); ta.select();
+    document.execCommand("copy"); ta.remove();
+    if (onOk) onOk();
+  } catch (e) { showToast("복사 실패 — 주소창 링크를 직접 복사하세요"); }
 }
 
 // 이미지를 클립보드에 복사(붙여넣기 가능). jpg 등은 PNG로 변환(클립보드는 주로 image/png만 허용).
@@ -645,6 +657,7 @@ function buildView(rows) {
     updateFavUI();
     renderCatNav();
     setView(viewMode); // 모바일 기본 갤러리 등 현재 뷰모드 반영
+    routeFromHash();   // 공유 링크(#p{id})로 들어왔으면 데이터 준비된 지금 상세 열기
   });
   table.on("rowClick", (e, row) => {
     const star = e.target.closest(".fav-star");
@@ -1389,6 +1402,7 @@ function openDetail(r, activeTab) {
           </div>${thumbs}`;
         })()}
         <button class="detail-fav2${isFav(r) ? " on" : ""}" id="btnDetailFav">★ 즐겨찾기</button>
+        ${r.__id != null ? `<button class="detail-share-btn" id="btnShareLink" title="이 상품으로 바로 열리는 링크 복사">🔗 링크 복사</button>` : ""}
         ${isAdminLoggedIn() && r.__id ? `<a class="detail-edit-btn" href="admin.html?edit=${encodeURIComponent(r.__id)}">✏️ 관리자 수정</a>` : ""}
       </div>
       <div class="detail-infocol">
@@ -1433,6 +1447,14 @@ function openDetail(r, activeTab) {
   }));
   $("btnCloseDetail").addEventListener("click", closeDetail);
   $("btnDetailFav").addEventListener("click", (e) => e.currentTarget.classList.toggle("on", toggleFav(r)));
+  const shareBtn = detail.querySelector("#btnShareLink");
+  if (shareBtn) shareBtn.addEventListener("click", () => {
+    const url = location.origin + location.pathname + location.search + "#p" + encodeURIComponent(r.__id);
+    const ok = () => showToast("링크 복사됨 — 붙여넣으면 이 상품이 바로 열려요");
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+      navigator.clipboard.writeText(url).then(ok).catch(() => copyTextFallback(url, ok));
+    } else copyTextFallback(url, ok);
+  });
   detail.querySelectorAll(".sim-card").forEach((el) => el.addEventListener("click", () => openDetail(reco[Number(el.dataset.ri)])));
   // 직접 추가(큐레이션) — 검색해서 추가
   const addInput = detail.querySelector("#simAddInput");
@@ -1474,11 +1496,35 @@ function openDetail(r, activeTab) {
   }
   detail.classList.remove("hidden");
   $("overlay").classList.remove("hidden");
+
+  // 주소에 #p{id} 반영 → 링크 공유 + 뒤로가기로 상세 닫기. (id 없는 CSV/데모 행은 생략)
+  _openId = r.__id != null ? String(r.__id) : null;
+  if (_openId != null) {
+    const want = "#p" + encodeURIComponent(_openId);
+    if (location.hash !== want) location.hash = want;   // 히스토리 항목 추가 → 뒤로가기=닫기
+  }
 }
 
 function closeDetail() {
   $("detail").classList.add("hidden");
   $("overlay").classList.add("hidden");
+  _openId = null;
+  // 상세용 해시(#p…)만 제거(히스토리 항목 추가 없이). 다른 해시는 건드리지 않음.
+  if (/^#p/.test(location.hash)) history.replaceState(null, "", location.pathname + location.search);
+}
+
+// 현재 주소 해시(#p{id})에 맞춰 상세를 열거나 닫는다. 뒤로/앞으로·공유링크 진입·최초 로드에 사용.
+function productById(id) { id = String(id); return allRows.find((r) => r.__id != null && String(r.__id) === id); }
+function routeFromHash() {
+  const m = (location.hash || "").match(/^#p(.+)$/);
+  if (m) {
+    const id = decodeURIComponent(m[1]);
+    if (id === _openId) return;              // 이미 그 상품이 열려 있음(우리가 방금 바꾼 해시) → 무시
+    const r = productById(id);
+    if (r) openDetail(r);                    // 데이터에 있으면 열기(없으면 아직 로드 전 → 렌더 후 재호출됨)
+  } else if (_openId != null) {
+    closeDetail();                           // 해시가 비면(뒤로가기 등) 상세 닫기
+  }
 }
 
 // ---- 이벤트 바인딩 --------------------------------------------------
@@ -1575,6 +1621,15 @@ function init() {
 
   $("overlay").addEventListener("click", closeDetail);
   document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDetail(); });
+
+  // 상세 링크 공유(#p{id}) 라우팅.
+  // 공유 링크로 바로 진입한 경우, base 진입점을 히스토리에 깔아 뒤로가기=상세 닫기(사이트 이탈 아님)로 만든다.
+  if (/^#p/.test(location.hash)) {
+    const h = location.hash;
+    history.replaceState(null, "", location.pathname + location.search);
+    history.pushState(null, "", h);
+  }
+  window.addEventListener("hashchange", routeFromHash);   // 뒤로/앞으로·해시 변경 반영
 
   // ---- 자동 갱신 (관리자 저장/복귀 시 카탈로그 최신화) ----
   let lastRefresh = 0;
