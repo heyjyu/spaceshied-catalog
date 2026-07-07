@@ -10,7 +10,7 @@
   <title>관리자 — 상품 관리</title>
   <!-- 테마: 모바일(≤860px) 라이트 고정, 데스크톱은 저장값(모든 페이지 동일 로직) -->
   <script>document.documentElement.dataset.theme = window.matchMedia("(max-width: 860px)").matches ? "light" : (localStorage.getItem("theme") || "light");</script>
-  <link rel="stylesheet" href="styles.css?v=90" />
+  <link rel="stylesheet" href="styles.css?v=91" />
   <style>
     .admin-wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
     .admin-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
@@ -218,6 +218,10 @@
   const app = document.getElementById("app");
   const esc = (s) => String(s ?? "").replace(/[&<>"']/g, (c) =>
     ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
+  // 목록 썸네일: thumbs/ 축소본 우선(카탈로그와 동일) — 없으면 onerror로 원본 폴백
+  const THUMB_MARK = "/storage/v1/object/public/product-images/";
+  const adminThumb = (u) => { const s = String(u || "");
+    return s.includes(THUMB_MARK) && !s.includes(THUMB_MARK + "thumbs/") ? s.replace(THUMB_MARK, THUMB_MARK + "thumbs/") : s; };
 
   let sb = null, rows = [];
 
@@ -314,7 +318,11 @@
     document.getElementById("backupBtn").addEventListener("click", backupDb);
     document.getElementById("restoreBtn").addEventListener("click", () => document.getElementById("restoreFile").click());
     document.getElementById("restoreFile").addEventListener("change", (e) => { if (e.target.files[0]) restoreDb(e.target.files[0]); e.target.value = ""; });
-    document.getElementById("q").addEventListener("input", (e) => renderList(e.target.value.trim()));
+    let qT;   // 검색 디바운스: 타이핑마다 618행 재렌더 방지
+    document.getElementById("q").addEventListener("input", (e) => {
+      clearTimeout(qT);
+      qT = setTimeout(() => renderList(e.target.value.trim()), 150);
+    });
     const at = document.getElementById("adminTheme");
     const setThemeIcon = () => { at.textContent = document.documentElement.dataset.theme === "dark" ? "☀️" : "🌙"; };
     setThemeIcon();
@@ -453,7 +461,7 @@
       list.map((r) => `
       <div class="prod-row${selected.has(String(r.id)) ? " sel" : ""}">
         <input type="checkbox" class="rowchk" data-chk="${r.id}" ${selected.has(String(r.id)) ? "checked" : ""}>
-        ${r.image ? `<img src="${esc(r.image)}" alt="" onerror="this.replaceWith(Object.assign(document.createElement('div'),{className:'noimg'}))">` : `<div class="noimg"></div>`}
+        ${r.image ? `<img src="${esc(adminThumb(r.image))}" data-full="${esc(r.image)}" loading="lazy" alt="" onerror="if(this.dataset.full&&this.src!==this.dataset.full){this.src=this.dataset.full;}else{this.replaceWith(Object.assign(document.createElement('div'),{className:'noimg'}));}">` : `<div class="noimg"></div>`}
         <div>
           <div class="pname">${esc(r.name)}</div>
           <div class="psub">${[r.model, r.material, r.size, r.buckle].filter(Boolean).map(esc).join(" · ")}</div>
