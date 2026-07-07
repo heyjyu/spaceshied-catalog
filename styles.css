@@ -539,6 +539,7 @@ main { padding: 18px 24px 48px; max-width: 1400px; margin: 0 auto; }
 /* ---------- 비슷한 제품 ---------- */
 .similar-wrap { margin-top: 24px; border-top: 1px solid var(--border-soft); padding-top: 18px; }
 .similar-title { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 14px; letter-spacing: -0.01em; }
+.similar-title:not(:first-child) { margin-top: 28px; }   /* 직접 추가 그리드와 자동 추천 사이 간격 */
 .similar-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 12px; }
 .sim-card {
   border: 1px solid var(--border-soft); border-radius: var(--radius-sm); overflow: hidden;
