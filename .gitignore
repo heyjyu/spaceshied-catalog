@@ -10,3 +10,6 @@ tabs.json
 # catalog.csv, sample-data.csv, images/, *.py, build.sh, README.md
 
 .DS_Store
+.env
+naver_sync_report.html
+naver_sync_approved.*
