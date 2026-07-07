@@ -77,6 +77,12 @@ function updateFavUI() {
 // ---- 유틸 -----------------------------------------------------------
 function findCol(headers, hints) {
   const lc = headers.map((h) => String(h).toLowerCase());
+  // 1차: 정확히 같은 헤더 우선 ("규격" 힌트가 "베이스규격"에 가로채이지 않게)
+  for (const hint of hints) {
+    const i = lc.indexOf(hint.toLowerCase());
+    if (i >= 0) return headers[i];
+  }
+  // 2차: 부분 일치
   for (const hint of hints) {
     const i = lc.findIndex((h) => h.includes(hint.toLowerCase()));
     if (i >= 0) return headers[i];
@@ -199,11 +205,21 @@ function colorBuckets(s) {
   return found;
 }
 // facet 한 행의 필터값 목록. derive 없으면 원본을 쪼갬. exclude 값은 제거.
+const STRAP_WIDTHS = ["12mm", "14mm", "18mm", "20mm", "22mm", "24mm", "26mm"];   // 표준 스트랩 너비
 function facetValues(row, f) {
   let vals;
   if (f.derive === "mm") {
-    const v = firstMm(row[f.key]) || firstMm(rowTitle(row));
+    // 규격 필드 우선, 없으면 제품명에서 추출 — 표준 너비(12~26mm)만 인정(47mm 등 워치 크기 잡음 배제)
+    const own = firstMm(row[f.key]);
+    const fromTitle = firstMm(rowTitle(row));
+    const v = STRAP_WIDTHS.includes(own) ? own : (STRAP_WIDTHS.includes(fromTitle) ? fromTitle : "");
     vals = v ? [v] : [];
+  } else if (f.derive === "structure") {
+    // 스트랩 구조: 기본형/결합형으로 정규화 (구식 '커넥터 연결형'/'기종별 일체형'·빈값은 커넥터 공용여부로)
+    const v = String(row[f.key] || "").trim();
+    if (/결합|연결/.test(v)) vals = ["결합형"];
+    else if (/기본|일체/.test(v)) vals = ["기본형"];
+    else vals = [/공용|공통|범용/.test(String(row["호환"] || "")) || !String(row["호환"] || "").trim() ? "결합형" : "기본형"];
   } else if (f.derive === "color") {
     const b = colorBuckets(row[f.key]);
     vals = b.length ? b : colorBuckets(rowTitle(row));
@@ -506,7 +522,7 @@ function buildColumns(headers) {
   const hide = new Set(CONFIG.HIDE_COLUMNS || []);
   const colorKey = (facetCols.find((f) => f.derive === "color") || {}).key;
   const sizeKey = (facetCols.find((f) => f.derive === "mm") || {}).key;
-  const connKey = (facetCols.find((f) => f.label === "호환") || {}).key;
+  const connKey = "호환";   // 표 컬럼 포맷용 (facet 구성과 무관하게 고정)
   const modelKey2 = (facetCols.find((f) => f.label === "기종") || {}).key;
   const hasCfg = columnCfg && Object.keys(columnCfg).length > 0;
   // 필수 컬럼(항상 노출): 제품명·사진·규격 ("규격"은 COLUMN_MAP.size 헤더, sizeKey는 '베이스규격'을 잡을 수 있어 직접 지정)
@@ -910,9 +926,8 @@ function cardHTML(r, i) {
   const size = firstMm(r["규격"]) || firstMm(r["베이스규격"]) || (sizeFacet && firstMm(r[sizeFacet.key])) || firstMm(rowTitle(r)) || "";
   const cc = colorCountOf(r);
   const price = colKeys.price ? String(r[colKeys.price] || "").trim() : "";
-  // 호환(커넥터) 기준: 공용/범용 = 연결형, 그 외 = 기종별 일체형
-  const connFacet = facetCols.find((f) => f.label === "호환");
-  const connVal = connFacet ? String(r[connFacet.key] || "").trim() : "";
+  // 호환(커넥터) 기준: 공용/범용 = 결합형, 그 외 = 기종 전용 (필드 직접 참조 — facet 구성과 무관)
+  const connVal = String(r["호환"] || "").trim();
   const universal = !connVal || /공용|공통|범용/.test(connVal);
   // ③ 기종 태그: 기종(model) 값 기준. 특정 기종=청록(⌚ 모델명), 공용/빈값=회색(↔ 공용 mm)
   const modelUniversal = !model || /공용|공통|범용/.test(model);
@@ -1253,8 +1268,7 @@ function openDetail(r, activeTab) {
   const colorFacet = facetCols.find((f) => f.derive === "color");
 
   // ① 기본정보 스펙 표 (카드 스펙 스트립과 동일 어휘)
-  const connFacet = facetCols.find((f) => f.label === "호환");
-  const connVal = connFacet ? String(r[connFacet.key] || "").trim() : "";
+  const connVal = String(r["호환"] || "").trim();
   const universal = !connVal || /공용|공통|범용/.test(connVal);
   const stField = String(r["스트랩형태"] || "").trim();
   const isConn = stField ? /결합|연결/.test(stField) : universal;
