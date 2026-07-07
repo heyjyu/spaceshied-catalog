@@ -1196,9 +1196,13 @@ function getSimilar(r, limit = 8, exclude = null) {
   const myShape = String(r["형태"] || "").trim();
   const mySize = firstMm(r["규격"]) || firstMm(r["베이스규격"]) || "";
   const baseTokens = nameTokens(rowTitle(r));
+  // 자기 자신·제외 목록은 id 기준으로 배제 (데이터 갱신 뒤 객체가 바뀌어도 자신이 안 뜨게)
+  const exIds = new Set([r.__id]);
+  if (exclude) exclude.forEach((x) => { if (x && x.__id) exIds.add(x.__id); });
   const scored = [];
   for (const o of allRows) {
     if (o === r) continue;
+    if (o.__id && exIds.has(o.__id)) continue;
     if (exclude && exclude.has(o)) continue;
     let s = 0;
     const oLine = String(o["베이스그룹"] || "").trim();
