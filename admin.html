@@ -10,7 +10,7 @@
   <title>관리자 — 상품 관리</title>
   <!-- 테마: 모바일(≤860px) 라이트 고정, 데스크톱은 저장값(모든 페이지 동일 로직) -->
   <script>document.documentElement.dataset.theme = window.matchMedia("(max-width: 860px)").matches ? "light" : (localStorage.getItem("theme") || "light");</script>
-  <link rel="stylesheet" href="styles.css?v=73" />
+  <link rel="stylesheet" href="styles.css?v=74" />
   <style>
     .admin-wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
     .admin-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
@@ -198,6 +198,7 @@
   </div>
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
   <script src="config.js?v=6"></script>
   <script>
   // ====== 상수 ======
@@ -290,6 +291,9 @@
         <button class="btn icon-only" id="adminTheme" title="다크/라이트 전환" aria-label="테마 전환">🌙</button>
         <button class="btn" id="colBtn" title="카탈로그 표 컬럼 순서/이름/노출 관리">📋 표 컬럼</button>
         <button class="btn" id="valBtn" title="기종·호환·재질 등 필터 값 일괄 변경/정리">🏷️ 값 정리</button>
+        <button class="btn" id="backupBtn" title="현재 DB 전체를 zip으로 백업 다운로드">💾 백업</button>
+        <button class="btn" id="restoreBtn" title="백업 zip으로 DB 되돌리기">♻️ 복원</button>
+        <input type="file" id="restoreFile" accept=".zip,.json" style="display:none">
         <button class="btn brand" id="addBtn">＋ 새 상품</button>
         <a class="btn" href="index.html"><span aria-hidden="true">🛍️</span> 카탈로그</a>
         <button class="btn logout-btn" id="logoutBtn" title="로그아웃"><span aria-hidden="true">↩</span> 로그아웃</button>
@@ -299,6 +303,9 @@
     document.getElementById("addBtn").addEventListener("click", () => openForm(null));
     document.getElementById("colBtn").addEventListener("click", openColumns);
     document.getElementById("valBtn").addEventListener("click", openValues);
+    document.getElementById("backupBtn").addEventListener("click", backupDb);
+    document.getElementById("restoreBtn").addEventListener("click", () => document.getElementById("restoreFile").click());
+    document.getElementById("restoreFile").addEventListener("change", (e) => { if (e.target.files[0]) restoreDb(e.target.files[0]); e.target.value = ""; });
     document.getElementById("q").addEventListener("input", (e) => renderList(e.target.value.trim()));
     const at = document.getElementById("adminTheme");
     const setThemeIcon = () => { at.textContent = document.documentElement.dataset.theme === "dark" ? "☀️" : "🌙"; };
@@ -310,6 +317,71 @@
       setThemeIcon();
     });
     await loadRows();
+  }
+
+  // ====== 백업 / 복원 ======
+  const BACKUP_TABLES = ["products", "categories", "column_config"];
+  const CONFLICT_KEY = { products: "id", categories: "key", column_config: "key" };
+  async function backupDb() {
+    const btn = document.getElementById("backupBtn"); const old = btn.textContent;
+    try {
+      btn.disabled = true; btn.textContent = "백업 중…";
+      const dump = {};
+      for (const t of BACKUP_TABLES) {
+        const { data, error } = await sb.from(t).select("*");
+        if (error) throw new Error(`${t}: ${error.message}`);
+        dump[t] = data || [];
+      }
+      const stamp = new Date().toISOString().slice(0, 10);
+      const zip = new JSZip();
+      for (const t of BACKUP_TABLES) zip.file(`${t}.json`, JSON.stringify(dump[t], null, 1));
+      zip.file("meta.json", JSON.stringify({ backedUpAt: new Date().toISOString(), counts: Object.fromEntries(BACKUP_TABLES.map((t) => [t, dump[t].length])) }, null, 1));
+      zip.file("복원방법.txt", "관리자 페이지 → ♻️ 복원 버튼 → 이 zip 선택 → 확인.\n※ 내부정보(원가·구매처·메모) 포함 — 외부 공유 금지.");
+      const blob = await zip.generateAsync({ type: "blob" });
+      const a = document.createElement("a");
+      a.href = URL.createObjectURL(blob); a.download = `supabase_backup_${stamp}.zip`;
+      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(a.href);
+      btn.textContent = "✓ 저장됨";
+    } catch (e) {
+      alert("백업 실패: " + (e.message || e));
+    } finally {
+      btn.disabled = false; setTimeout(() => { btn.textContent = old; }, 1500);
+    }
+  }
+
+  async function restoreDb(file) {
+    let dump = {};
+    try {
+      if (/\.zip$/i.test(file.name)) {
+        const zip = await JSZip.loadAsync(file);
+        for (const t of BACKUP_TABLES) {
+          const f = zip.file(`${t}.json`);
+          if (f) dump[t] = JSON.parse(await f.async("string"));
+        }
+      } else { // .json (products 단일 or {products,...} 형태)
+        const obj = JSON.parse(await file.text());
+        if (Array.isArray(obj)) dump.products = obj;
+        else dump = obj;
+      }
+    } catch (e) { alert("파일 읽기 실패: " + (e.message || e)); return; }
+    const summary = BACKUP_TABLES.filter((t) => dump[t]).map((t) => `${t} ${dump[t].length}건`).join(" / ");
+    if (!summary) { alert("복원할 데이터가 없습니다(백업 zip인지 확인)."); return; }
+    if (!await uiConfirm(`백업으로 되돌립니다.\n\n${summary}\n\n같은 id는 덮어쓰고, 없는 id는 추가됩니다(upsert). 진행할까요?`, { okText: "복원 실행", danger: true })) return;
+    try {
+      let done = 0;
+      for (const t of BACKUP_TABLES) {
+        const arr = dump[t]; if (!arr || !arr.length) continue;
+        for (let i = 0; i < arr.length; i += 200) {
+          const chunk = arr.slice(i, i + 200);
+          const { error } = await sb.from(t).upsert(chunk, { onConflict: CONFLICT_KEY[t] });
+          if (error) throw new Error(`${t}: ${error.message}`);
+        }
+        done++;
+      }
+      signalCatalog();
+      await loadRows();
+      alert(`복원 완료 (${summary}). 카탈로그도 갱신됩니다.`);
+    } catch (e) { alert("복원 실패: " + (e.message || e) + "\n(로그인/네트워크 확인)"); }
   }
 
   async function loadRows() {
