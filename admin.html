@@ -10,7 +10,7 @@
   <title>관리자 — 상품 관리</title>
   <!-- 테마: 모바일(≤860px) 라이트 고정, 데스크톱은 저장값(모든 페이지 동일 로직) -->
   <script>document.documentElement.dataset.theme = window.matchMedia("(max-width: 860px)").matches ? "light" : (localStorage.getItem("theme") || "light");</script>
-  <link rel="stylesheet" href="styles.css?v=80" />
+  <link rel="stylesheet" href="styles.css?v=81" />
   <style>
     .admin-wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
     .admin-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
@@ -604,19 +604,24 @@
           <div class="field"><label>종류</label><input id="f_kind" list="dl_kind" value="${v('kind')}" placeholder="선택 또는 입력" autocomplete="off"><datalist id="dl_kind">${kindOpts}</datalist></div>
           <div class="field"><label>기종</label><input id="f_model" list="dl_model" value="${v('model')}" placeholder="선택 또는 입력" autocomplete="off"><datalist id="dl_model">${dl('model')}</datalist></div>
           <div class="field"><label>재질</label><input id="f_material" list="dl_material" value="${v('material')}" placeholder="선택 또는 입력" autocomplete="off"><datalist id="dl_material">${dl('material')}</datalist></div>
-          <div class="field"><label>규격</label><input id="f_size" list="dl_size" value="${v('size')}" placeholder="선택 또는 입력" autocomplete="off"><datalist id="dl_size">${dl('size')}</datalist></div>
           <div class="field"><label>베이스규격</label><input id="f_base_size" list="dl_base_size" value="${v('base_size')}" placeholder="선택 또는 입력" autocomplete="off"><datalist id="dl_base_size">${dl('base_size')}</datalist></div>
           <div class="field"><label>체결</label><input id="f_buckle" list="dl_buckle" value="${v('buckle')}" placeholder="선택 또는 입력" autocomplete="off"><datalist id="dl_buckle">${dl('buckle')}</datalist></div>
-          <div class="field"><label>형태 <span style="color:var(--muted);font-weight:400">(일자=일반형/아치=날개형)</span></label>
-            <select id="f_strap_shape">${["", "일반형", "날개형"].map((s) => `<option value="${s}"${(rec.strap_shape || "") === s ? " selected" : ""}>${s || "(미지정)"}</option>`).join("")}</select></div>
         </div>
-        <div class="field"><label>스트랩 구조</label>
-          <select id="f_strap_type">
-            <option value="결합형"${isUniversal ? " selected" : ""}>결합형 — 공용 스트랩 + 커넥터 결합</option>
-            <option value="기본형"${isUniversal ? "" : " selected"}>기본형 — 기종 전용 일체 설계</option>
-          </select>
+
+        <div class="form-sec">스트랩 구성 <span style="color:var(--muted);font-weight:400">(① 구조 → ② 커넥터 타입 → ③ 너비)</span></div>
+        <div class="grid2">
+          <div class="field"><label>① 스트랩 구조</label>
+            <select id="f_strap_type">
+              <option value="기본형"${isUniversal ? "" : " selected"}>기본형 — 단순출고</option>
+              <option value="결합형"${isUniversal ? " selected" : ""}>결합형 — 조합출고</option>
+            </select>
+          </div>
+          <div class="field"><label>② 커넥터 타입</label><select id="connTypeSel"></select></div>
+          <div class="field"><label>③ 스트랩 너비</label><select id="f_size"></select>
+            <div id="sizeLockHint" style="font-size:11.5px;color:var(--muted);margin-top:4px;display:none">결합형은 커넥터 타입에 따라 너비 자동 고정</div>
+          </div>
+          <div class="field" id="connWrap" style="${isUniversal ? "display:none" : ""}"><label>호환 기종</label><input id="f_connector" list="dl_connector" value="${isUniversal ? "" : v('connector')}" placeholder="예) 갤럭시 워치 8" autocomplete="off"><datalist id="dl_connector">${dlConn}</datalist></div>
         </div>
-        <div class="field" id="connWrap" style="${isUniversal ? "display:none" : ""}"><label>호환 기종</label><input id="f_connector" list="dl_connector" value="${isUniversal ? "" : v('connector')}" placeholder="예) 갤럭시 워치 8" autocomplete="off"><datalist id="dl_connector">${dlConn}</datalist></div>
 
         <div class="form-sec">판매 채널</div>
         <div class="field"><label>네이버 링크</label><div class="link-row"><span class="link-ico n">N</span><input id="f_store_url" type="url" value="${v('store_url')}" placeholder="https://smartstore.naver.com/..."></div></div>
@@ -685,11 +690,56 @@
       bg.querySelectorAll("#statusPills .pill-opt").forEach((x) => x.classList.toggle("on", x === p));
       document.getElementById("f_status").value = p.dataset.status;
     }));
-    // 스트랩 구조 드롭다운: 기본형(기종 전용)일 때만 호환 기종 입력칸 노출
+    // ── 스트랩 구성: 구조 → 커넥터 타입 → 너비 연동 (시트 기준) ──
+    // 기본형(단순출고): 커넥터 타입 자유 선택 + 너비 12~26mm 중 선택
+    const CONN_BASIC = ["일자형 12mm", "일자형 14mm", "일자형 18mm", "일자형 20mm", "일자형 22mm", "일자형 24mm", "일자형 26mm",
+      "갤럭시 원클릭", "미밴드 플래그십", "갤럭시 울트라 러그", "갤럭시 러그", "화웨이 이지핏", "화웨이 핏", "갤럭시 핏",
+      "XR", "퀵핏 20mm", "퀵핏 22mm", "가민 전용 22mm", "가민 전용 26mm", "티렉스 3"];
+    // 결합형(조합출고): "너비 to 커넥터" 조합 선택 → 너비 자동 고정
+    const CONN_COMBO = [
+      { c: "원클릭", w: "20mm" }, { c: "원클릭", w: "22mm" },
+      { c: "갤럭시 핏3", w: "18mm" },
+      { c: "갤럭시 러그", w: "20mm" }, { c: "갤럭시 러그", w: "22mm" },
+      { c: "갤럭시 울트라 러그", w: "20mm" }, { c: "갤럭시 울트라 러그", w: "22mm" },
+      { c: "미밴드 10 9 8", w: "14mm" },
+      { c: "XR", w: "20mm" }, { c: "XR", w: "22mm" },
+      { c: "퀵핏 D2.0 22mm", w: "20mm" }, { c: "퀵핏 D2.3 22mm", w: "20mm" },
+      { c: "퀵핏 D2.0 26mm", w: "22mm" }, { c: "퀵핏 D2.3 26mm", w: "22mm" },
+      { c: "티렉스 3", w: "20mm" }, { c: "티렉스 3", w: "22mm" },
+    ];
+    const SIZES = ["12mm", "14mm", "18mm", "20mm", "22mm", "24mm", "26mm"];
     const stSel = document.getElementById("f_strap_type");
-    if (stSel) stSel.addEventListener("change", () => {
-      document.getElementById("connWrap").style.display = stSel.value === "기본형" ? "" : "none";
-    });
+    const conSel = document.getElementById("connTypeSel");
+    const sizeSel = document.getElementById("f_size");
+    const sizeHint = document.getElementById("sizeLockHint");
+    const curShape = String(rec.strap_shape || "").trim();
+    const curSize = String(rec.size || "").trim();
+    function renderStrapUI(first) {
+      const basic = stSel.value === "기본형";
+      if (basic) {
+        const list = CONN_BASIC.slice();
+        if (curShape && !list.includes(curShape)) list.unshift(curShape);   // 기존값(일반형/날개형 등) 유지
+        conSel.innerHTML = list.map((c) => `<option value="${esc(c)}"${first && c === curShape ? " selected" : ""}>${esc(c)}</option>`).join("");
+        const sList = SIZES.slice();
+        if (curSize && !sList.includes(curSize)) sList.unshift(curSize);
+        sizeSel.innerHTML = `<option value="">(미지정)</option>` + sList.map((s) => `<option value="${esc(s)}"${first && s === curSize ? " selected" : ""}>${esc(s)}</option>`).join("");
+        sizeSel.disabled = false; sizeHint.style.display = "none";
+      } else {
+        const selIdx = first ? Math.max(0, CONN_COMBO.findIndex((o) => o.c === curShape && o.w === curSize)) : 0;
+        conSel.innerHTML = CONN_COMBO.map((o, i) => `<option value="${i}"${i === selIdx ? " selected" : ""}>${esc(o.w)} to ${esc(o.c)}</option>`).join("");
+        syncComboSize();
+        sizeHint.style.display = "";
+      }
+      document.getElementById("connWrap").style.display = basic ? "" : "none";
+    }
+    function syncComboSize() {
+      const o = CONN_COMBO[Number(conSel.value) || 0];
+      sizeSel.innerHTML = `<option value="${esc(o.w)}" selected>${esc(o.w)}</option>`;
+      sizeSel.disabled = true;
+    }
+    stSel.addEventListener("change", () => renderStrapUI(false));
+    conSel.addEventListener("change", () => { if (stSel.value === "결합형") syncComboSize(); });
+    renderStrapUI(true);
     // 입력 변경 추적 → 바깥 클릭/취소 시 실수로 닫혀 내용 날아가는 것 방지
     let dirty = false;
     bg.querySelectorAll("input, select, textarea").forEach((el) =>
@@ -778,8 +828,16 @@
       // 커넥터: 스트랩 형태 토글 기준. 커넥터 연결형=공용(범용), 기종별 일체형=입력한 호환 기종
       const stSelEl = document.getElementById("f_strap_type");
       obj.strap_type = stSelEl ? stSelEl.value : "결합형";   // 결합형 / 기본형 (카드·상세 표시 기준)
-      if (obj.strap_type === "결합형") obj.connector = "공용(범용)";
-      else { const ce = document.getElementById("f_connector"); obj.connector = ce && ce.value.trim() ? ce.value.trim() : (rec.connector || null); }
+      // 커넥터 타입·너비: 기본형=선택값 그대로, 결합형=조합에서 자동 확정
+      if (obj.strap_type === "결합형") {
+        const combo = CONN_COMBO[Number(conSel.value) || 0];
+        obj.strap_shape = combo.c; obj.size = combo.w;
+        obj.connector = "공용(범용)";
+      } else {
+        obj.strap_shape = conSel.value || null;
+        obj.size = sizeSel.value || null;
+        const ce = document.getElementById("f_connector"); obj.connector = ce && ce.value.trim() ? ce.value.trim() : (rec.connector || null);
+      }
       // '커넥터 연결형' 직접 입력 시에도 표준값으로 정규화
       if (/^커넥터\s*연결형$/.test((obj.connector || "").trim())) obj.connector = "공용(범용)";
       if (/^커넥터\s*연결형$/.test((obj.model || "").trim())) obj.model = "공용";

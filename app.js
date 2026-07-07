@@ -925,7 +925,7 @@ function cardHTML(r, i) {
       </div>
       <div class="qbar">
         ${qb("qn", "N", naver)}${qb("qc", "C", coupang)}${qb("qf", "F", flow)}${qb("qb2", "B", src)}
-        <button class="qb qpal" data-i="${i}" title="색상 목록 복사" onclick="event.stopPropagation()">🎨</button>
+        <button class="qb qpal" data-i="${i}" title="중국 컬러차트 복사">🎨</button>
       </div>
     </div>
   </div>`;
@@ -998,9 +998,13 @@ function bindGalleryEvents(g) {
     if (pal) {
       e.stopPropagation();
       const r = galleryRows[Number(pal.dataset.i)];
+      // 중국 컬러차트 이미지를 클립보드에 복사 (발주 시 바로 붙여넣기)
+      const chart = String(r.__colorChart || "").trim();
+      if (chart) { copyImageToClipboard(chart); return; }
+      // 차트 없으면 색상명 텍스트 폴백
       const colorFacet = facetCols.find((f) => f.derive === "color");
       const colors = colorFacet ? String(r[colorFacet.key] || "").trim() : "";
-      if (!colors) { showToast("등록된 색상이 없습니다"); return; }
+      if (!colors) { showToast("등록된 컬러차트/색상이 없습니다"); return; }
       try { navigator.clipboard.writeText(colors); showToast("색상 목록 복사됨: " + colors); }
       catch (_) { showToast(colors); }
       return;
