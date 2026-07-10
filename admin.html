@@ -10,7 +10,7 @@
   <title>관리자 — 상품 관리</title>
   <!-- 테마: 모바일(≤860px) 라이트 고정, 데스크톱은 저장값(모든 페이지 동일 로직) -->
   <script>document.documentElement.dataset.theme = window.matchMedia("(max-width: 860px)").matches ? "light" : (localStorage.getItem("theme") || "light");</script>
-  <link rel="stylesheet" href="styles.css?v=110" />
+  <link rel="stylesheet" href="styles.css?v=111" />
   <style>
     .admin-wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
     .admin-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
@@ -207,7 +207,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-  <script src="config.js?v=110"></script>
+  <script src="config.js?v=111"></script>
   <script>
   // ====== 상수 ======
   const S = (CONFIG && CONFIG.SUPABASE) || {};
@@ -561,7 +561,8 @@
     "커넥터": () => CONN_BASIC_DEFAULT.slice(),
     "규격": () => SIZES_DEFAULT.slice(),
   };
-  const VOCAB_GROUPS = ["기종", "구조", "커넥터", "규격"];
+  // 속성값 관리 화면에 노출할 그룹. '구조'(기본형/결합형)는 폼 로직 종속이라 편집 불가 → 제외.
+  const VOCAB_GROUPS = ["기종", "커넥터", "규격"];
   let vocabCfg = {};
   async function loadVocab() {
     try {
