@@ -10,7 +10,7 @@
   <title>관리자 — 상품 관리</title>
   <!-- 테마: 모바일(≤860px) 라이트 고정, 데스크톱은 저장값(모든 페이지 동일 로직) -->
   <script>document.documentElement.dataset.theme = window.matchMedia("(max-width: 860px)").matches ? "light" : (localStorage.getItem("theme") || "light");</script>
-  <link rel="stylesheet" href="styles.css?v=102" />
+  <link rel="stylesheet" href="styles.css?v=103" />
   <style>
     .admin-wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
     .admin-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
@@ -302,6 +302,7 @@
         </div>
         <button class="btn icon-only" id="adminTheme" title="다크/라이트 전환" aria-label="테마 전환">🌙</button>
         <button class="btn" id="colBtn" title="카탈로그 표 컬럼 순서/이름/노출 관리">📋 표 컬럼</button>
+        <button class="btn" id="vocabBtn" title="기종·구조·커넥터·규격 드롭다운 선택지(어휘집) 추가/수정">🧩 속성값</button>
         <button class="btn" id="valBtn" title="기종·호환·재질 등 필터 값 일괄 변경/정리">🏷️ 값 정리</button>
         <button class="btn" id="backupBtn" title="현재 DB 전체를 zip으로 백업 다운로드">💾 백업</button>
         <button class="btn" id="restoreBtn" title="백업 zip으로 DB 되돌리기">♻️ 복원</button>
@@ -314,6 +315,7 @@
     document.getElementById("logoutBtn").addEventListener("click", async () => { await sb.auth.signOut(); showLogin(); });
     document.getElementById("addBtn").addEventListener("click", () => openForm(null));
     document.getElementById("colBtn").addEventListener("click", openColumns);
+    document.getElementById("vocabBtn").addEventListener("click", openVocab);
     document.getElementById("valBtn").addEventListener("click", openValues);
     document.getElementById("backupBtn").addEventListener("click", backupDb);
     document.getElementById("restoreBtn").addEventListener("click", () => document.getElementById("restoreFile").click());
@@ -332,6 +334,7 @@
       try { localStorage.setItem("theme", next); } catch (e) {}
       setThemeIcon();
     });
+    await loadVocab();   // 폼 드롭다운 선택지(어휘집)를 DB에서 먼저 로드
     await loadRows();
   }
 
@@ -372,8 +375,8 @@
   }
 
   // ====== 백업 / 복원 ======
-  const BACKUP_TABLES = ["products", "categories", "column_config"];
-  const CONFLICT_KEY = { products: "id", categories: "key", column_config: "key" };
+  const BACKUP_TABLES = ["products", "categories", "column_config", "vocab_config"];
+  const CONFLICT_KEY = { products: "id", categories: "key", column_config: "key", vocab_config: "key" };
   async function backupDb() {
     const btn = document.getElementById("backupBtn"); const old = btn.textContent;
     try {
@@ -381,7 +384,8 @@
       const dump = {};
       for (const t of BACKUP_TABLES) {
         const { data, error } = await sb.from(t).select("*");
-        if (error) throw new Error(`${t}: ${error.message}`);
+        // vocab_config 등 아직 안 만든 테이블은 건너뜀(백업 자체는 성공)
+        if (error) { if (/does not exist|relation|schema cache/i.test(error.message)) { dump[t] = []; continue; } throw new Error(`${t}: ${error.message}`); }
         dump[t] = data || [];
       }
       const stamp = new Date().toISOString().slice(0, 10);
@@ -544,6 +548,31 @@
     return [...set].sort((a, b) => a.localeCompare(b, "ko"));
   }
 
+  // ====== 속성값(어휘집) — DB(vocab_config) 우선, 없으면 기본값 seed ======
+  //  4그룹: 기종 / 구조 / 커넥터(기본형 선택지) / 규격. 폼 드롭다운·필터 표준값에 반영.
+  const CONN_BASIC_DEFAULT = ["일자형 12mm", "일자형 14mm", "일자형 18mm", "일자형 20mm", "일자형 22mm", "일자형 24mm", "일자형 26mm",
+    "갤럭시 날개형", "갤럭시 원클릭", "미밴드 플래그십", "갤럭시 울트라 러그", "갤럭시 러그", "화웨이 이지핏", "화웨이 핏", "갤럭시 핏",
+    "XR", "퀵핏 20mm", "퀵핏 22mm", "가민 전용 22mm", "가민 전용 26mm", "티렉스 3"];
+  const SIZES_DEFAULT = ["12mm", "14mm", "18mm", "20mm", "22mm", "24mm", "26mm"];
+  const VOCAB_DEFAULTS = {
+    "기종": () => ((window.CONFIG && CONFIG.VOCAB && CONFIG.VOCAB["기종"]) || []).slice(),
+    "구조": () => ["기본형", "결합형"],
+    "커넥터": () => CONN_BASIC_DEFAULT.slice(),
+    "규격": () => SIZES_DEFAULT.slice(),
+  };
+  const VOCAB_GROUPS = ["기종", "구조", "커넥터", "규격"];
+  let vocabCfg = {};
+  async function loadVocab() {
+    try {
+      const { data } = await sb.from("vocab_config").select("*");
+      vocabCfg = Object.fromEntries((data || []).map((r) => [r.key, Array.isArray(r.values) ? r.values : []]));
+    } catch (e) { vocabCfg = {}; }
+  }
+  function vocabOf(key) {
+    const v = vocabCfg[key];
+    return (Array.isArray(v) && v.length) ? v.slice() : (VOCAB_DEFAULTS[key] ? VOCAB_DEFAULTS[key]() : []);
+  }
+
   // forceNew=true → rec 값으로 폼을 채우되 저장은 insert(새 상품). 카드 복사(사본 등록)에 사용.
   function openForm(rec, forceNew) {
     const isNew = !rec || forceNew;
@@ -552,8 +581,9 @@
     // 컬럼 → 표준 어휘집(VOCAB) 키 매핑. 표준값을 드롭다운 앞에 붙이고 기존 DB값과 합침(중복 제거)
     const VOCAB = (CONFIG && CONFIG.VOCAB) || {};
     const VKEY = { model: "기종", material: "재질", buckle: "체결", size: "규격", base_size: "규격", base_family: "라인", kind: "종류" };
+    const GROUP_OF = { model: "기종" };   // 어휘집(DB) 관리 대상은 vocabOf 우선
     const dl = (col) => {
-      const std = VOCAB[VKEY[col]] || [];
+      const std = GROUP_OF[col] ? vocabOf(GROUP_OF[col]) : (VOCAB[VKEY[col]] || []);
       const merged = [...new Set([...std, ...distinctVals(col)])];
       return merged.map((x) => `<option value="${esc(x)}">`).join("");
     };
@@ -624,10 +654,11 @@
         <div class="form-sec">스트랩 구성 <span style="color:var(--muted);font-weight:400">(구조 → 커넥터 → 규격 · 구조를 바꾸면 커넥터 선택지가 맞춰집니다)</span></div>
         <div class="grid2">
           <div class="field"><label>구조</label>
-            <select id="f_strap_type">
-              <option value="기본형"${isUniversal ? "" : " selected"}>기본형 — 단순출고</option>
-              <option value="결합형"${isUniversal ? " selected" : ""}>결합형 — 조합출고</option>
-            </select>
+            <select id="f_strap_type">${vocabOf("구조").map((s) => {
+              const sel = (s === (isUniversal ? "결합형" : "기본형")) ? " selected" : "";
+              const lbl = s === "기본형" ? "기본형 — 단순출고" : s === "결합형" ? "결합형 — 조합출고" : s;
+              return `<option value="${esc(s)}"${sel}>${esc(lbl)}</option>`;
+            }).join("")}</select>
           </div>
           <div class="field"><label>커넥터</label><select id="connTypeSel"></select></div>
           <div class="field"><label>규격</label><select id="f_size"></select>
@@ -698,10 +729,8 @@
       document.getElementById("f_status").value = p.dataset.status;
     }));
     // ── 스트랩 구성: 구조 → 커넥터 타입 → 너비 연동 (시트 기준) ──
-    // 기본형(단순출고): 커넥터 타입 자유 선택 + 너비 12~26mm 중 선택
-    const CONN_BASIC = ["일자형 12mm", "일자형 14mm", "일자형 18mm", "일자형 20mm", "일자형 22mm", "일자형 24mm", "일자형 26mm",
-      "갤럭시 날개형", "갤럭시 원클릭", "미밴드 플래그십", "갤럭시 울트라 러그", "갤럭시 러그", "화웨이 이지핏", "화웨이 핏", "갤럭시 핏",
-      "XR", "퀵핏 20mm", "퀵핏 22mm", "가민 전용 22mm", "가민 전용 26mm", "티렉스 3"];
+    // 기본형(단순출고): 커넥터 타입 자유 선택 + 너비 12~26mm 중 선택. 목록은 어휘집(vocab_config) 우선.
+    const CONN_BASIC = vocabOf("커넥터");
     // 결합형(조합출고): "너비 to 커넥터" 조합 선택 → 너비 자동 고정
     const CONN_COMBO = [
       { c: "원클릭", w: "20mm" }, { c: "원클릭", w: "22mm" },
@@ -714,7 +743,7 @@
       { c: "퀵핏 D2.0 26mm", w: "22mm" }, { c: "퀵핏 D2.3 26mm", w: "22mm" },
       { c: "티렉스 3", w: "20mm" }, { c: "티렉스 3", w: "22mm" },
     ];
-    const SIZES = ["12mm", "14mm", "18mm", "20mm", "22mm", "24mm", "26mm"];
+    const SIZES = vocabOf("규격");
     const stSel = document.getElementById("f_strap_type");
     const conSel = document.getElementById("connTypeSel");
     const sizeSel = document.getElementById("f_size");
@@ -1189,6 +1218,58 @@
     await loadRows();   // rows 갱신
     alert(`${changes.length}건 변경 완료! 카탈로그를 새로고침하면 반영됩니다.`);
     renderValues();
+  }
+
+  // ====== 속성값(어휘집) 관리 화면 ======
+  const VOCAB_HINT = {
+    "기종": "지원 기종 목록. 자유 추가. 한 줄에 하나씩.",
+    "구조": "⚠️ 기본형 / 결합형 유지 권장 — 폼의 커넥터·너비 연동이 이 두 값을 기준으로 동작합니다.",
+    "커넥터": "기본형에서 고르는 커넥터 타입. (결합형 '너비→커넥터' 조합은 코드에서 관리)",
+    "규격": "⚠️ 스트랩 너비. mm 단위(예: 12mm, 20mm, 22mm).",
+  };
+  async function openVocab() {
+    await loadVocab();
+    app.innerHTML = `
+      <div class="admin-top">
+        <h1>속성값 관리</h1>
+        <div style="flex:1"></div>
+        <button class="btn" id="vocBack">← 상품 목록</button>
+        <a class="btn" href="index.html"><span aria-hidden="true">🛍️</span> 카탈로그</a>
+        <button class="btn brand" id="vocSave">저장</button>
+      </div>
+      <div class="notice" style="margin-bottom:14px">한 줄에 값 하나. <b>순서 = 드롭다운 표시 순서</b>. 저장하면 <b>상품 등록/수정 폼</b>과 <b>카탈로그 필터</b>에 반영됩니다. (비워두면 기본값 사용)</div>
+      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start">
+        ${VOCAB_GROUPS.map((k) => {
+          const vals = vocabOf(k);
+          return `<div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px">
+            <div style="font-weight:700;font-size:15px;margin-bottom:2px">${k} <span style="color:var(--muted);font-weight:400">(${vals.length})</span></div>
+            <div style="color:var(--muted);font-size:12.5px;margin-bottom:8px">${VOCAB_HINT[k] || ""}</div>
+            <textarea class="vocab-ta" data-key="${k}" rows="${Math.min(20, Math.max(6, vals.length + 1))}"
+              style="width:100%;box-sizing:border-box;font-family:inherit;font-size:13.5px;line-height:1.7;padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--panel-2,var(--panel));color:var(--text);resize:vertical">${esc(vals.join("\n"))}</textarea>
+          </div>`;
+        }).join("")}
+      </div>`;
+    document.getElementById("vocBack").addEventListener("click", showAdmin);
+    document.getElementById("vocSave").addEventListener("click", saveVocab);
+  }
+  async function saveVocab() {
+    const payload = [...document.querySelectorAll(".vocab-ta")].map((ta) => ({
+      key: ta.dataset.key,
+      values: ta.value.split("\n").map((s) => s.trim()).filter(Boolean),
+    }));
+    // 중복 값 경고(같은 그룹 안)
+    for (const p of payload) {
+      const dup = p.values.filter((x, i) => p.values.indexOf(x) !== i);
+      if (dup.length && !await uiConfirm(`[${p.key}]에 중복 값이 있습니다: ${[...new Set(dup)].join(", ")}\n그대로 저장할까요?`, { okText: "저장", danger: false })) return;
+    }
+    const btn = document.getElementById("vocSave"); btn.disabled = true; btn.textContent = "저장 중…";
+    const { error } = await sb.from("vocab_config").upsert(payload, { onConflict: "key" });
+    btn.disabled = false; btn.textContent = "저장";
+    if (error) { alert("저장 실패: " + error.message + "\n\n(vocab_config 테이블이 없으면 supabase_vocab_config.sql 먼저 실행하세요)"); return; }
+    await loadVocab();
+    try { signalCatalog(); } catch (e) {}
+    alert("저장 완료! 상품 폼·카탈로그 필터에 반영됩니다.");
+    showAdmin();
   }
 
   boot();

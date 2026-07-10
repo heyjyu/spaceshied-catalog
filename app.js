@@ -366,7 +366,19 @@ async function saveRelated(r, ids) {
   if (!resp.ok) throw new Error("HTTP " + resp.status);
   r.__related = ids.map(String);
 }
-function applySupabaseData(cats, cols, prods) {
+// 관리자 어휘집(vocab_config) → CONFIG.VOCAB 병합. 필터 표준표기(vocabCanon)가 편집값을 따르게.
+function mergeVocab(vocab) {
+  if (!Array.isArray(vocab) || !vocab.length) return;
+  const KMAP = { "기종": ["기종"], "구조": ["스트랩 구조", "스트랩구조"], "커넥터": ["커넥터 타입"], "규격": ["스트랩 너비"] };
+  CONFIG.VOCAB = CONFIG.VOCAB || {};
+  vocab.forEach((r) => {
+    const vals = Array.isArray(r.values) ? r.values.filter(Boolean) : [];
+    if (!vals.length) return;
+    (KMAP[r.key] || [r.key]).forEach((vk) => { CONFIG.VOCAB[vk] = vals; });
+  });
+}
+function applySupabaseData(cats, cols, prods, vocab) {
+  mergeVocab(vocab);
   categoryCfg = {};
   (cats || []).forEach((c) => { categoryCfg[c.key] = { label: c.label || "", sort: c.sort, visible: c.visible !== false }; });
   columnCfg = {};
@@ -383,20 +395,21 @@ function loadFromSupabase() {
   let cachedRaw = null;
   try { cachedRaw = localStorage.getItem(CATALOG_CACHE_KEY); } catch (e) {}
   if (cachedRaw) {
-    try { const c = JSON.parse(cachedRaw); applySupabaseData(c.cats, c.cols, c.prods); }
+    try { const c = JSON.parse(cachedRaw); applySupabaseData(c.cats, c.cols, c.prods, c.vocab); }
     catch (e) { cachedRaw = null; }
   }
-  // ② 3개 병렬 fetch → 캐시와 다르면 조용히 교체 + 캐시 저장
+  // ② 병렬 fetch → 캐시와 다르면 조용히 교체 + 캐시 저장 (vocab_config는 없어도 무시)
   const j = (u) => fetch(u, H).then((r) => (r.ok ? r.json() : Promise.reject(new Error("HTTP " + r.status))));
   Promise.all([
     j(`${s.URL}/rest/v1/categories?select=key,label,sort,visible`).catch(() => []),
     j(`${s.URL}/rest/v1/column_config?select=key,label,sort,visible`).catch(() => []),
     j(`${s.URL}/rest/v1/${s.TABLE || "products"}?select=*${order}`),
+    j(`${s.URL}/rest/v1/vocab_config?select=key,values`).catch(() => []),
   ])
-    .then(([cats, cols, prods]) => {
-      const fresh = JSON.stringify({ cats, cols, prods });
+    .then(([cats, cols, prods, vocab]) => {
+      const fresh = JSON.stringify({ cats, cols, prods, vocab });
       try { localStorage.setItem(CATALOG_CACHE_KEY, fresh); } catch (e) {}
-      if (!cachedRaw || fresh !== cachedRaw) applySupabaseData(cats, cols, prods);
+      if (!cachedRaw || fresh !== cachedRaw) applySupabaseData(cats, cols, prods, vocab);
     })
     .catch((err) => {
       if (!cachedRaw) setStatus("Supabase 불러오기 실패: " + err.message +
