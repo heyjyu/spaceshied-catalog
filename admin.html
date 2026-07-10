@@ -10,7 +10,7 @@
   <title>관리자 — 상품 관리</title>
   <!-- 테마: 모바일(≤860px) 라이트 고정, 데스크톱은 저장값(모든 페이지 동일 로직) -->
   <script>document.documentElement.dataset.theme = window.matchMedia("(max-width: 860px)").matches ? "light" : (localStorage.getItem("theme") || "light");</script>
-  <link rel="stylesheet" href="styles.css?v=104" />
+  <link rel="stylesheet" href="styles.css?v=105" />
   <style>
     .admin-wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
     .admin-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
@@ -572,6 +572,13 @@
     const v = vocabCfg[key];
     return (Array.isArray(v) && v.length) ? v.slice() : (VOCAB_DEFAULTS[key] ? VOCAB_DEFAULTS[key]() : []);
   }
+  // 라인(base_family) 자동 생성: 제품명에서 규격(mm)·괄호 부가설명 제거 → 같은 디자인 묶음명.
+  function deriveLine(name) {
+    return String(name || "").normalize("NFC")
+      .replace(/\([^)]*\)/g, " ")        // (…) 부가설명 제거
+      .replace(/\s*\d+\s*mm\b/gi, " ")   // 12mm·22mm 등 규격 제거
+      .replace(/\s+/g, " ").trim();
+  }
 
   // forceNew=true → rec 값으로 폼을 채우되 저장은 insert(새 상품). 카드 복사(사본 등록)에 사용.
   function openForm(rec, forceNew) {
@@ -637,7 +644,7 @@
         <div class="grid2">
           <div class="field" style="grid-column:1/-1"><label>제품명</label><input id="f_name" type="text" value="${v('name')}"></div>
           <div class="field" style="grid-column:1/-1"><label>별칭 <span style="color:var(--muted);font-weight:400">내부 식별용</span></label><input id="f_alias" type="text" value="${v('alias')}" placeholder="예) 투톤_실리콘_베이직"></div>
-          <div class="field"><label>라인</label><input id="f_base_family" list="dl_base_family" value="${v('base_family')}" placeholder="선택 또는 입력" autocomplete="off"><datalist id="dl_base_family">${dl('base_family')}</datalist></div>
+          <div class="field"><label>라인 <span style="color:var(--muted);font-weight:400">제품명에서 자동 · 같은 디자인 묶음</span></label><input id="f_base_family" list="dl_base_family" value="${v('base_family')}" placeholder="제품명 입력 시 자동 (규격·괄호 제외)" autocomplete="off"><datalist id="dl_base_family">${dl('base_family')}</datalist></div>
           <div class="field"><label>색상 수</label><input id="f_color_count" type="number" min="0" value="${esc(rec.color_count ?? "")}" placeholder="예) 12"></div>
           <div class="field"><label>공식판매가 <span style="color:var(--muted);font-weight:400">(원)</span></label><input id="f_price" type="number" min="0" value="${esc(rec.price ?? "")}" placeholder="예) 19900"></div>
           <div class="field"><label>출시년월</label><input id="f_launch_year" type="month" min="2000-01" max="2099-12" value="${esc(lyVal)}"></div>
@@ -775,6 +782,15 @@
     stSel.addEventListener("change", () => renderStrapUI(false));
     conSel.addEventListener("change", () => { if (stSel.value === "결합형") syncComboSize(); });
     renderStrapUI(true);
+    // 라인 자동 채움: 제품명 입력 시 라인을 자동 생성(규격·괄호 제외). 라인을 직접 고치면 자동 중단.
+    {
+      const nameEl = document.getElementById("f_name");
+      const lineEl = document.getElementById("f_base_family");
+      const cur = lineEl.value.trim();
+      let lineAuto = !cur || cur === deriveLine(nameEl.value);   // 비었거나 자동값과 같으면 자동모드
+      nameEl.addEventListener("input", () => { if (lineAuto) lineEl.value = deriveLine(nameEl.value); });
+      lineEl.addEventListener("input", () => { lineAuto = !lineEl.value.trim() || lineEl.value.trim() === deriveLine(nameEl.value); });
+    }
     // 입력 변경 추적 → 바깥 클릭/취소 시 실수로 닫혀 내용 날아가는 것 방지
     let dirty = false;
     let pendingSig;   // 대표 이미지 새 업로드 시 계산된 색상 지문(저장 시 기록)
@@ -886,6 +902,8 @@
     document.getElementById("saveBtn").addEventListener("click", async () => {
       const obj = {};
       Object.keys(FIELDS).forEach((col) => { const el = document.getElementById("f_" + col); if (el) obj[col] = (el.value || "").trim(); });
+      // 라인(base_family) 비어 있으면 제품명에서 자동 생성
+      if (!obj.base_family && obj.name) obj.base_family = deriveLine(obj.name) || null;
       const sortV = document.getElementById("f_sort").value;
       obj.sort = sortV === "" ? null : Number(sortV);
       obj.sampling_date = document.getElementById("f_sampling_date").value || null;
