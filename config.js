@@ -62,10 +62,11 @@ const CONFIG = {
   //  (다른 셀러 시트엔 derive 빼면 원본값 그대로 필터됨)
   //  exclude(선택): 그 facet 드롭다운에서 뺄 값들(케이스용 재질 등).
   FACETS: [
+    // 용어·순서 통일: 구조 · 커넥터 · 규격. label=표시 라벨(짧게), vocab=VOCAB 표준값 조회 키.
     { label: "기종", hints: ["기종", "모델", "워치"] },
-    { label: "스트랩 구조", hints: ["스트랩형태"], derive: "structure" },   // 기본형(단순출고)/결합형(조합출고) (표시순서: 구조>커넥터>규격 통일)
-    { label: "커넥터 타입", hints: ["형태"] },                               // 일자형·러그·원클릭·퀵핏 등
-    { label: "스트랩 너비", hints: ["규격", "사이즈", "size", "mm"], derive: "mm" },
+    { label: "구조", vocab: "스트랩 구조", hints: ["스트랩형태"], derive: "structure" },   // 기본형(단순출고)/결합형(조합출고)
+    { label: "커넥터", vocab: "커넥터 타입", hints: ["형태"] },                             // 일자형·러그·원클릭·퀵핏 등
+    { label: "규격", vocab: "스트랩 너비", hints: ["규격", "사이즈", "size", "mm"], derive: "mm" },
     { label: "재질", hints: ["재질", "소재", "material"],
       exclude: ["강화유리", "사생활 강화유리", "PC", "PMMA"] }, // 케이스/액정보호필름용 → 스트랩 아님
     { label: "고정 타입", hints: ["체결", "버클", "잠금"] },

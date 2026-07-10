@@ -481,7 +481,7 @@ function detectColumns(headers, rows) {
   for (const f of CONFIG.FACETS || []) {
     const c = findCol(headers, f.hints);
     if (c && !facetCols.some((x) => x.key === c)) {
-      facetCols.push({ label: f.label, key: c, derive: f.derive || null, exclude: f.exclude || null });
+      facetCols.push({ label: f.label, vocab: f.vocab || f.label, key: c, derive: f.derive || null, exclude: f.exclude || null });
       filterState.facets[c] = "";
     }
   }
@@ -536,7 +536,7 @@ function buildFacetDropdowns(rows) {
     sel.dataset.key = f.key;
     // 한 셀에 여러 값이면 쪼개서 각각을 옵션으로 (derive 적용).
     // 공백 차이로 갈라진 값은 하나로 병합(VOCAB 표준표기 우선).
-    const canon = vocabCanon(f.label);
+    const canon = vocabCanon(f.vocab || f.label);
     const groups = new Map();  // 정규화키 → 표시값
     rows.forEach((r) => facetValues(r, f).forEach((v) => {
       const k = normKey(v);
@@ -1473,9 +1473,9 @@ function openDetail(r, activeTab) {
     || (/러그/.test(connVal) ? "러그형" : /날개/.test(connVal) ? "날개형" : /원클릭/.test(connVal) ? "원클릭" : /원터치/.test(connVal) ? "원터치" : (universal ? "일반형" : "-"));
   const memoVal = String(r["메모"] || "").trim();
   const specRows = [
-    ["스트랩 구조", isConn ? "결합형" : "기본형"],
-    ["커넥터 타입", connName],
-    ["스트랩 너비", size || "-"],
+    ["구조", isConn ? "결합형" : "기본형"],
+    ["커넥터", connName],
+    ["규격", size || "-"],
     ["재질", material || "-"],
     ["고정 타입", String(r["체결"] || "").trim() || "-"],
   ];
