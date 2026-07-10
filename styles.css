@@ -935,3 +935,18 @@ main { padding: 18px 24px 48px; max-width: 1400px; margin: 0 auto; }
   border: 2px solid transparent; background: var(--bg);
 }
 .color-pop .cp-th.on { border-color: var(--brand); }
+
+/* 컬러 팝업 — 색상칩 클릭복사 + 이미지 클릭복사 힌트 (v109) */
+.color-pop .cp-chip { cursor: pointer; transition: background .12s, transform .08s; }
+.color-pop .cp-chip:hover { background: var(--brand-soft); }
+.color-pop .cp-chip:active { transform: scale(.94); }
+[data-theme="dark"] .color-pop .cp-chip:hover { background: #17304d; }
+.color-pop .cp-chart-box { position: relative; cursor: pointer; }
+.color-pop .cp-chart-box .cp-chart { margin-top: 0; }
+.color-pop .cp-chart-hint {
+  position: absolute; right: 8px; bottom: 8px;
+  background: rgba(0,0,0,.6); color: #fff; font-size: 11.5px; font-weight: 600;
+  padding: 4px 10px; border-radius: var(--radius-pill); pointer-events: none;
+  opacity: .8; transition: opacity .15s, background .15s;
+}
+.color-pop .cp-chart-box:hover .cp-chart-hint { opacity: 1; background: var(--brand); }

@@ -1267,15 +1267,17 @@ function showColorPopup(r, anchor) {
   const chartsHtml = charts.length ? `
     <div class="cp-chart-wrap">
       <div class="cp-chart-label" id="cpLabel">${esc(charts[0][0])}</div>
-      <img class="cp-chart" id="cpMain" src="${esc(charts[0][1])}" alt="컬러차트" title="클릭하면 이미지 복사">
+      <div class="cp-chart-box" title="클릭하면 이미지 복사">
+        <img class="cp-chart" id="cpMain" src="${esc(charts[0][1])}" alt="컬러차트">
+        <div class="cp-chart-hint">📋 클릭 시 복사</div>
+      </div>
       ${charts.length > 1 ? `<div class="cp-thumbs">${charts.map(([label, u], i) =>
         `<img class="cp-th${i === 0 ? " on" : ""}" data-i="${i}" src="${esc(u)}" title="${esc(label)}" alt="${esc(label)}">`).join("")}</div>` : ""}
-    </div>
-    <button class="cp-copy">📋 이 차트 이미지 복사 (발주용)</button>` : "";
+    </div>` : "";
   pop.innerHTML =
     `<div class="cp-head">🎨 ${cc ? `색상 ${cc}종` : "색상"}</div>` +
-    (buckets.length ? `<div class="cp-sw">${buckets.map((c) =>
-      `<span class="cp-chip"><span class="cp-dot" style="background:${hex[c] || "#ccc"}"></span>${esc(c)}</span>`).join("")}</div>` : "") +
+    (buckets.length ? `<div class="cp-sw" title="색상을 클릭하면 이름이 복사됩니다">${buckets.map((c) =>
+      `<span class="cp-chip" data-c="${esc(c)}"><span class="cp-dot" style="background:${hex[c] || "#ccc"}"></span>${esc(c)}</span>`).join("")}</div>` : "") +
     (colorRaw && !buckets.length ? `<div class="cp-list">${esc(colorRaw)}</div>` : "") +
     chartsHtml;
   document.body.appendChild(pop);
@@ -1301,8 +1303,13 @@ function showColorPopup(r, anchor) {
     pop.querySelectorAll(".cp-th").forEach((x) => x.classList.toggle("on", x === th));
   }));
   if (mainImg) mainImg.addEventListener("click", () => copyImageToClipboard(curChart));
-  const cp = pop.querySelector(".cp-copy");
-  if (cp) cp.addEventListener("click", () => copyImageToClipboard(curChart));
+  // 색상 칩 클릭 → 색상 이름 텍스트 복사
+  pop.querySelectorAll(".cp-chip").forEach((chip) => chip.addEventListener("click", () => {
+    const c = chip.dataset.c || "";
+    const done = () => showToast(`"${c}" 복사됨`);
+    if (navigator.clipboard && navigator.clipboard.writeText) navigator.clipboard.writeText(c).then(done).catch(done);
+    else done();
+  }));
   _colorPop = pop;
   setTimeout(() => {
     document.addEventListener("mousedown", _colorPopOutside, true);
