@@ -512,7 +512,7 @@ function buildSuggestIndex(rows) {
     const id = type + "|" + text.toLowerCase();
     const cur = map.get(id);
     if (cur) cur.count++;
-    else map.set(id, { text, lc: searchNorm(text), type, key, count: 1 });
+    else map.set(id, { text, lc: searchNorm(text), lcNS: searchNorm(text).replace(/\s+/g, ""), type, key, count: 1 });
   };
   for (const r of rows) {
     if (colKeys.name) add(rowTitle(r), "상품", null);
@@ -706,8 +706,9 @@ function matchRow(data) {
     const hay = Object.entries(data)
       .filter(([k]) => k[0] !== "_")
       .map(([, v]) => searchNorm(v)).join(" ");
+    const hayNS = hay.replace(/\s+/g, "");   // 공백 무시 매칭용 ("런업"으로 "런 업" 검색)
     const tokens = searchNorm(filterState.search).split(/\s+/).filter(Boolean);
-    if (!tokens.every((t) => hay.includes(t))) return false;
+    if (!tokens.every((t) => hay.includes(t) || hayNS.includes(t.replace(/\s+/g, "")))) return false;
   }
   for (const f of facetCols) {
     const val = filterState.facets[f.key];
@@ -1228,22 +1229,66 @@ function bindGalleryEvents(g) {
     const pal = e.target.closest(".qpal");
     if (pal) {
       e.stopPropagation();
-      const r = galleryRows[Number(pal.dataset.i)];
-      // 중국 컬러차트 이미지를 클립보드에 복사 (발주 시 바로 붙여넣기)
-      const chart = String(r.__colorChart || "").trim();
-      if (chart) { copyImageToClipboard(chart); return; }
-      // 차트 없으면 색상명 텍스트 폴백
-      const colorFacet = facetCols.find((f) => f.derive === "color");
-      const colors = colorFacet ? String(r[colorFacet.key] || "").trim() : "";
-      if (!colors) { showToast("등록된 컬러차트/색상이 없습니다"); return; }
-      try { navigator.clipboard.writeText(colors); showToast("색상 목록 복사됨: " + colors); }
-      catch (_) { showToast(colors); }
+      showColorPopup(galleryRows[Number(pal.dataset.i)], pal);   // 팔레트 → 컬러 팝업 "뿅"
       return;
     }
     if (e.target.closest(".qb")) return;   // 외부 링크는 기본 동작
     const card = e.target.closest(".card");
     if (card) openDetail(galleryRows[Number(card.dataset.i)]);
   });
+}
+
+// ---- 컬러 팝업 (카드 🎨 클릭 → 색상 스와치+컬러차트 "뿅") ----------
+let _colorPop = null;
+function closeColorPopup() {
+  if (!_colorPop) return;
+  _colorPop.remove(); _colorPop = null;
+  document.removeEventListener("mousedown", _colorPopOutside, true);
+  document.removeEventListener("keydown", _colorPopEsc, true);
+  window.removeEventListener("scroll", closeColorPopup, true);
+}
+function _colorPopOutside(e) { if (_colorPop && !_colorPop.contains(e.target) && !e.target.closest(".qpal")) closeColorPopup(); }
+function _colorPopEsc(e) { if (e.key === "Escape") closeColorPopup(); }
+function showColorPopup(r, anchor) {
+  closeColorPopup();
+  const cc = colorCountOf(r);
+  const colorFacet = facetCols.find((f) => f.derive === "color");
+  const colorRaw = colorFacet ? String(r[colorFacet.key] || "").trim() : "";
+  const buckets = colorBuckets(colorRaw);
+  const hex = CONFIG.COLOR_HEX || {};
+  const chart = String(r.__colorChart || "").trim();
+  if (!buckets.length && !colorRaw && !chart) { showToast("등록된 컬러차트/색상이 없습니다"); return; }
+  const pop = document.createElement("div");
+  pop.className = "color-pop";
+  pop.innerHTML =
+    `<div class="cp-head">🎨 ${cc ? `색상 ${cc}종` : "색상"}</div>` +
+    (buckets.length ? `<div class="cp-sw">${buckets.map((c) =>
+      `<span class="cp-chip"><span class="cp-dot" style="background:${hex[c] || "#ccc"}"></span>${esc(c)}</span>`).join("")}</div>` : "") +
+    (colorRaw && !buckets.length ? `<div class="cp-list">${esc(colorRaw)}</div>` : "") +
+    (chart ? `<img class="cp-chart" src="${esc(chart)}" alt="컬러차트" title="클릭하면 이미지 복사">
+              <button class="cp-copy">📋 차트 이미지 복사 (발주용)</button>` : "");
+  document.body.appendChild(pop);
+  // 앵커(팔레트 버튼) 위에 띄우되, 위 공간 없으면 아래로. 화면 밖으로 안 나가게 보정.
+  const b = anchor.getBoundingClientRect();
+  const M = 8, pw = pop.offsetWidth, ph = pop.offsetHeight;
+  let left = Math.max(M, Math.min(b.left + b.width / 2 - pw / 2, window.innerWidth - pw - M));
+  let top = b.top - ph - 10, below = false;
+  if (top < M) { top = b.bottom + 10; below = true; }                 // 위 공간 없으면 아래로
+  top = Math.max(M, Math.min(top, window.innerHeight - ph - M));       // 뷰포트 안으로 클램프(넘침 방지)
+  pop.style.left = left + "px"; pop.style.top = top + "px";
+  pop.style.transformOrigin = below ? "top center" : "bottom center";
+  void pop.offsetHeight;              // 강제 리플로우 → 초기(opacity0·scale) 확정 후 전이 재생(rAF 없이도 "뿅")
+  pop.classList.add("show");
+  const img = pop.querySelector(".cp-chart");
+  if (img) img.addEventListener("click", () => copyImageToClipboard(chart));
+  const cp = pop.querySelector(".cp-copy");
+  if (cp) cp.addEventListener("click", () => copyImageToClipboard(chart));
+  _colorPop = pop;
+  setTimeout(() => {
+    document.addEventListener("mousedown", _colorPopOutside, true);
+    document.addEventListener("keydown", _colorPopEsc, true);
+    window.addEventListener("scroll", closeColorPopup, true);
+  }, 0);
 }
 
 function setView(mode) {
@@ -1281,8 +1326,9 @@ function renderSuggestions(term) {
   term = String(term || "").trim();
   if (term.length < 1) return hideSuggest();
   const lc = searchNorm(term);
+  const lcNS = lc.replace(/\s+/g, "");
   const matches = suggestItems
-    .filter((s) => s.lc.includes(lc))
+    .filter((s) => s.lc.includes(lc) || (s.lcNS || "").includes(lcNS))
     .sort((a, b) => {
       // 앞에서 일치(startsWith)를 우선
       const as = a.lc.startsWith(lc) ? 0 : 1;

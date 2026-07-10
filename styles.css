@@ -895,3 +895,32 @@ main { padding: 18px 24px 48px; max-width: 1400px; margin: 0 auto; }
 
 /* 칩 바 결과 개수 */
 .achip-count { font-size: 13px; font-weight: 700; color: var(--text); margin-right: 2px; }
+
+/* ============================================================
+   컬러 팝업 (카드 🎨 클릭 → 색상 스와치+컬러차트 "뿅") — v106
+   ============================================================ */
+.color-pop {
+  position: fixed; z-index: 60; max-width: 300px;
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 16px; box-shadow: var(--shadow-lg); padding: 13px 15px;
+  max-height: calc(100vh - 20px); overflow-y: auto;
+  opacity: 0; transform: scale(.82);
+  transition: opacity .14s ease, transform .18s cubic-bezier(.2,1.35,.45,1);
+}
+.color-pop.show { opacity: 1; transform: scale(1); }
+.color-pop .cp-head { font-weight: 700; font-size: 14px; margin-bottom: 9px; }
+.color-pop .cp-sw { display: flex; flex-wrap: wrap; gap: 6px; }
+.color-pop .cp-chip {
+  display: inline-flex; align-items: center; gap: 5px; font-size: 12px; font-weight: 500;
+  background: var(--bg); border-radius: var(--radius-pill); padding: 3px 10px 3px 5px;
+}
+.color-pop .cp-dot { width: 14px; height: 14px; border-radius: 50%; border: 1px solid rgba(0,0,0,.15); flex: none; }
+.color-pop .cp-list { font-size: 12px; color: var(--muted); line-height: 1.5; }
+.color-pop .cp-chart { display: block; width: 100%; height: 190px; object-fit: contain; background: var(--bg); border-radius: 10px; margin-top: 11px; cursor: pointer; }
+.color-pop .cp-copy {
+  margin-top: 9px; width: 100%; border: 1px solid var(--border); background: var(--panel);
+  border-radius: 10px; padding: 8px; font-size: 12.5px; font-weight: 600; color: var(--text); cursor: pointer;
+}
+.color-pop .cp-copy:hover { background: var(--bg); border-color: var(--brand); color: var(--brand); }
+[data-theme="dark"] .color-pop .cp-dot { border-color: rgba(255,255,255,.22); }
+@media (prefers-reduced-motion: reduce) { .color-pop { transition: opacity .12s; transform: none; } }
