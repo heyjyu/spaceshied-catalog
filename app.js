@@ -1119,8 +1119,8 @@ function cardHTML(r, i) {
     || (/러그/.test(connVal) ? "러그형" : /날개/.test(connVal) ? "날개형" : /원클릭/.test(connVal) ? "원클릭" : /원터치/.test(connVal) ? "원터치" : (universal ? "일반형" : "-"));
   const structName = isConn ? "결합형" : "기본형";
   const specStrip = `<div class="spec-strip">
-      <div class="ss-cell ss-conn"><div class="ss-l">커넥터</div><div class="ss-v">${esc(connName)}</div></div>
       <div class="ss-cell ss-struct"><div class="ss-l">구조</div><div class="ss-v">${esc(structName)}</div></div>
+      <div class="ss-cell ss-conn"><div class="ss-l">커넥터</div><div class="ss-v">${esc(connName)}</div></div>
       <div class="ss-cell ss-size"><div class="ss-l">규격</div><div class="ss-v">${esc(size || "-")}</div></div>
     </div>`;
   // ⑥ 바로가기: N 네이버 / C 쿠팡 / F 플로우 / B 1688
@@ -1473,8 +1473,8 @@ function openDetail(r, activeTab) {
     || (/러그/.test(connVal) ? "러그형" : /날개/.test(connVal) ? "날개형" : /원클릭/.test(connVal) ? "원클릭" : /원터치/.test(connVal) ? "원터치" : (universal ? "일반형" : "-"));
   const memoVal = String(r["메모"] || "").trim();
   const specRows = [
-    ["커넥터 타입", connName],
     ["스트랩 구조", isConn ? "결합형" : "기본형"],
+    ["커넥터 타입", connName],
     ["스트랩 너비", size || "-"],
     ["재질", material || "-"],
     ["고정 타입", String(r["체결"] || "").trim() || "-"],
