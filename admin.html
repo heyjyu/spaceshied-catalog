@@ -10,7 +10,7 @@
   <title>관리자 — 상품 관리</title>
   <!-- 테마: 모바일(≤860px) 라이트 고정, 데스크톱은 저장값(모든 페이지 동일 로직) -->
   <script>document.documentElement.dataset.theme = window.matchMedia("(max-width: 860px)").matches ? "light" : (localStorage.getItem("theme") || "light");</script>
-  <link rel="stylesheet" href="styles.css?v=98" />
+  <link rel="stylesheet" href="styles.css?v=99" />
   <style>
     .admin-wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
     .admin-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
@@ -459,8 +459,14 @@
   const selected = new Set();   // 선택된 상품 id
 
   function renderList(term) {
-    term = (term || "").toLowerCase();
-    const list = rows.filter((r) => !term || String(r.name || "").toLowerCase().includes(term));
+    // NFC 정규화(분해형 한글 검색 실패 방지) + 공백 토큰 AND. 이름·별칭·기종·재질 대상.
+    const sNorm = (s) => String(s || "").normalize("NFC").toLowerCase();
+    const toks = sNorm(term).split(/\s+/).filter(Boolean);
+    const list = rows.filter((r) => {
+      if (!toks.length) return true;
+      const hay = sNorm([r.name, r.alias, r.model, r.material].filter(Boolean).join(" "));
+      return toks.every((t) => hay.includes(t));
+    });
     const el = document.getElementById("list");
     if (!list.length) { el.innerHTML = `<div class="notice">상품이 없습니다. ‘+ 새 상품’으로 추가하세요.</div>`; return; }
     // 화면에 없는(검색 필터된) 선택은 정리
@@ -482,12 +488,22 @@
           <div class="psub">${[r.model, r.material, r.size, r.buckle].filter(Boolean).map(esc).join(" · ")}</div>
         </div>
         <div class="ops">
+          <button class="btn" data-copy="${r.id}" title="이 상품의 모든 속성을 복사해 사본으로 새로 등록">📄 복사</button>
           <button class="btn" data-edit="${r.id}">수정</button>
           <button class="btn ghost" data-del="${r.id}">삭제</button>
         </div>
       </div>`).join("");
     el.querySelectorAll("[data-edit]").forEach((b) => b.addEventListener("click",
       () => openForm(rows.find((x) => String(x.id) === b.dataset.edit))));
+    el.querySelectorAll("[data-copy]").forEach((b) => b.addEventListener("click", () => {
+      const src = rows.find((x) => String(x.id) === b.dataset.copy);
+      if (!src) return;
+      // 모든 속성 복제 → 사본으로 새 등록(검토 후 저장). id·마스터ID는 새로 부여되므로 제외.
+      const clone = { ...src };
+      delete clone.id;
+      clone.name = String(src.name || "").normalize("NFC") + " 사본";
+      openForm(clone, true);
+    }));
     el.querySelectorAll("[data-del]").forEach((b) => b.addEventListener("click",
       () => delRow(rows.find((x) => String(x.id) === b.dataset.del))));
     el.querySelectorAll("[data-chk]").forEach((cb) => cb.addEventListener("change", () => {
@@ -528,8 +544,9 @@
     return [...set].sort((a, b) => a.localeCompare(b, "ko"));
   }
 
-  function openForm(rec) {
-    const isNew = !rec;
+  // forceNew=true → rec 값으로 폼을 채우되 저장은 insert(새 상품). 카드 복사(사본 등록)에 사용.
+  function openForm(rec, forceNew) {
+    const isNew = !rec || forceNew;
     rec = rec || {};
     const v = (k) => esc(rec[k] ?? "");
     // 컬럼 → 표준 어휘집(VOCAB) 키 매핑. 표준값을 드롭다운 앞에 붙이고 기존 DB값과 합침(중복 제거)
@@ -604,16 +621,16 @@
           <div class="field"><label>고정 타입 <span style="color:var(--muted);font-weight:400">(버클·마그네틱 등)</span></label><input id="f_buckle" list="dl_buckle" value="${v('buckle')}" placeholder="선택 또는 입력" autocomplete="off"><datalist id="dl_buckle">${dl('buckle')}</datalist></div>
         </div>
 
-        <div class="form-sec">스트랩 구성 <span style="color:var(--muted);font-weight:400">(① 구조 → ② 커넥터 타입 → ③ 너비)</span></div>
+        <div class="form-sec">스트랩 구성 <span style="color:var(--muted);font-weight:400">(커넥터 → 구조 → 너비 · 구조를 바꾸면 커넥터 선택지가 맞춰집니다)</span></div>
         <div class="grid2">
-          <div class="field"><label>① 스트랩 구조</label>
+          <div class="field"><label>커넥터 타입</label><select id="connTypeSel"></select></div>
+          <div class="field"><label>스트랩 구조</label>
             <select id="f_strap_type">
               <option value="기본형"${isUniversal ? "" : " selected"}>기본형 — 단순출고</option>
               <option value="결합형"${isUniversal ? " selected" : ""}>결합형 — 조합출고</option>
             </select>
           </div>
-          <div class="field"><label>② 커넥터 타입</label><select id="connTypeSel"></select></div>
-          <div class="field"><label>③ 스트랩 너비</label><select id="f_size"></select>
+          <div class="field"><label>스트랩 너비</label><select id="f_size"></select>
             <div id="sizeLockHint" style="font-size:11.5px;color:var(--muted);margin-top:4px;display:none">결합형은 커넥터 타입에 따라 너비 자동 고정</div>
           </div>
         </div>

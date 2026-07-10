@@ -499,7 +499,7 @@ function buildSuggestIndex(rows) {
     const id = type + "|" + text.toLowerCase();
     const cur = map.get(id);
     if (cur) cur.count++;
-    else map.set(id, { text, lc: text.toLowerCase(), type, key, count: 1 });
+    else map.set(id, { text, lc: searchNorm(text), type, key, count: 1 });
   };
   for (const r of rows) {
     if (colKeys.name) add(rowTitle(r), "상품", null);
@@ -514,7 +514,9 @@ function buildSuggestIndex(rows) {
 }
 
 // 공백·대소문자 무시 정규화 키 (띄어쓰기 다른 같은 값 병합용): "갤럭시 워치8" == "갤럭시 워치 8"
-function normKey(s) { return String(s == null ? "" : s).replace(/\s+/g, "").toLowerCase(); }
+function normKey(s) { return String(s == null ? "" : s).normalize("NFC").replace(/\s+/g, "").toLowerCase(); }
+// 검색 비교용 정규화: 분해형(NFD) 한글→조합형(NFC)로 통일 + 소문자. (엑셀/네이버 유래 데이터가 NFD라 검색 안 되던 문제)
+function searchNorm(s) { return String(s == null ? "" : s).normalize("NFC").toLowerCase(); }
 // facet 라벨 → {정규화키: 표준표기} (VOCAB 기준값 우선 표시)
 function vocabCanon(label) {
   const list = (CONFIG.VOCAB && CONFIG.VOCAB[label]) || [];
@@ -686,10 +688,13 @@ function matchRow(data) {
   if (filterState.lifecycle && statusKey(data) !== filterState.lifecycle) return false;
   if (filterState.favOnly && !isFav(data)) return false;
   if (filterState.search) {
-    const term = filterState.search.toLowerCase();
-    // 내부 키(__id, Tabulator _fav 등)는 검색 대상에서 제외
-    if (!Object.entries(data).some(([k, v]) => k[0] !== "_" && String(v).toLowerCase().includes(term)))
-      return false;
+    // NFC 정규화(엑셀/네이버 유래 분해형 한글 "런 업" 검색 실패 방지) + 공백단위 토큰 AND 매칭.
+    // 내부 키(__id, Tabulator _fav 등)는 검색 대상에서 제외.
+    const hay = Object.entries(data)
+      .filter(([k]) => k[0] !== "_")
+      .map(([, v]) => searchNorm(v)).join(" ");
+    const tokens = searchNorm(filterState.search).split(/\s+/).filter(Boolean);
+    if (!tokens.every((t) => hay.includes(t))) return false;
   }
   for (const f of facetCols) {
     const val = filterState.facets[f.key];
@@ -1251,7 +1256,8 @@ function ensureSuggestBox() {
 }
 
 function highlight(text, term) {
-  const i = text.toLowerCase().indexOf(term.toLowerCase());
+  text = String(text).normalize("NFC");
+  const i = searchNorm(text).indexOf(searchNorm(term));
   if (i < 0) return esc(text);
   return esc(text.slice(0, i)) + "<mark>" + esc(text.slice(i, i + term.length)) +
     "</mark>" + esc(text.slice(i + term.length));
@@ -1261,7 +1267,7 @@ function renderSuggestions(term) {
   const box = ensureSuggestBox();
   term = String(term || "").trim();
   if (term.length < 1) return hideSuggest();
-  const lc = term.toLowerCase();
+  const lc = searchNorm(term);
   const matches = suggestItems
     .filter((s) => s.lc.includes(lc))
     .sort((a, b) => {
@@ -1467,8 +1473,8 @@ function openDetail(r, activeTab) {
     || (/러그/.test(connVal) ? "러그형" : /날개/.test(connVal) ? "날개형" : /원클릭/.test(connVal) ? "원클릭" : /원터치/.test(connVal) ? "원터치" : (universal ? "일반형" : "-"));
   const memoVal = String(r["메모"] || "").trim();
   const specRows = [
-    ["스트랩 구조", isConn ? "결합형" : "기본형"],
     ["커넥터 타입", connName],
+    ["스트랩 구조", isConn ? "결합형" : "기본형"],
     ["스트랩 너비", size || "-"],
     ["재질", material || "-"],
     ["고정 타입", String(r["체결"] || "").trim() || "-"],

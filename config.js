@@ -63,8 +63,8 @@ const CONFIG = {
   //  exclude(선택): 그 facet 드롭다운에서 뺄 값들(케이스용 재질 등).
   FACETS: [
     { label: "기종", hints: ["기종", "모델", "워치"] },
+    { label: "커넥터 타입", hints: ["형태"] },                               // 일자형·러그·원클릭·퀵핏 등 (표시순서: 커넥터>구조>규격 통일)
     { label: "스트랩 구조", hints: ["스트랩형태"], derive: "structure" },   // 기본형(단순출고)/결합형(조합출고)
-    { label: "커넥터 타입", hints: ["형태"] },                               // 일자형·러그·원클릭·퀵핏 등
     { label: "스트랩 너비", hints: ["규격", "사이즈", "size", "mm"], derive: "mm" },
     { label: "재질", hints: ["재질", "소재", "material"],
       exclude: ["강화유리", "사생활 강화유리", "PC", "PMMA"] }, // 케이스/액정보호필름용 → 스트랩 아님
