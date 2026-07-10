@@ -950,3 +950,32 @@ main { padding: 18px 24px 48px; max-width: 1400px; margin: 0 auto; }
   opacity: .8; transition: opacity .15s, background .15s;
 }
 .color-pop .cp-chart-box:hover .cp-chart-hint { opacity: 1; background: var(--brand); }
+
+/* ============================================================
+   속성값 관리 — 태그(칩) 편집 (v113)
+   ============================================================ */
+.voc-grid { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 16px; align-items: start; }
+@media (max-width: 760px) { .voc-grid { grid-template-columns: 1fr; } }
+.voc-card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 14px; }
+.voc-head { font-weight: 700; font-size: 15px; }
+.voc-cnt { color: var(--muted); font-weight: 400; }
+.voc-hint { color: var(--muted); font-size: 12.5px; margin: 2px 0 10px; line-height: 1.5; }
+.voc-chips { display: flex; flex-wrap: wrap; gap: 7px; }
+.voc-chip {
+  display: inline-flex; align-items: center; gap: 3px;
+  background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius-pill);
+  padding: 5px 6px 5px 12px; font-size: 13px; cursor: grab; user-select: none;
+}
+.voc-chip:active { cursor: grabbing; }
+.voc-chip.dragging { opacity: .4; }
+.voc-chip.dup { border-color: var(--danger); animation: voc-shake .32s; }
+@keyframes voc-shake { 0%,100% { transform: translateX(0); } 20%,60% { transform: translateX(-4px); } 40%,80% { transform: translateX(4px); } }
+.voc-x { border: 0; background: transparent; color: var(--muted); cursor: pointer; font-size: 12px; line-height: 1; padding: 3px 5px; border-radius: 50%; }
+.voc-x:hover { background: var(--danger); color: #fff; }
+.voc-add {
+  border: 1px dashed var(--border); background: transparent; border-radius: var(--radius-pill);
+  padding: 6px 12px; font-size: 13px; font-family: inherit; color: var(--text); min-width: 130px; flex: 1; outline: none;
+}
+.voc-add::placeholder { color: var(--muted); }
+.voc-add:focus { border-style: solid; border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft); }
+.voc-msg { color: var(--danger); font-size: 12px; font-weight: 600; margin-top: 8px; height: 15px; opacity: 0; transition: opacity .15s; }

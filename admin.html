@@ -10,7 +10,7 @@
   <title>관리자 — 상품 관리</title>
   <!-- 테마: 모바일(≤860px) 라이트 고정, 데스크톱은 저장값(모든 페이지 동일 로직) -->
   <script>document.documentElement.dataset.theme = window.matchMedia("(max-width: 860px)").matches ? "light" : (localStorage.getItem("theme") || "light");</script>
-  <link rel="stylesheet" href="styles.css?v=112" />
+  <link rel="stylesheet" href="styles.css?v=113" />
   <style>
     .admin-wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
     .admin-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
@@ -207,7 +207,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-  <script src="config.js?v=112"></script>
+  <script src="config.js?v=113"></script>
   <script>
   // ====== 상수 ======
   const S = (CONFIG && CONFIG.SUPABASE) || {};
@@ -1247,45 +1247,124 @@
     "커넥터": "기본형에서 고르는 커넥터 타입. (결합형 '너비→커넥터' 조합은 코드에서 관리)",
     "규격": "⚠️ 스트랩 너비. mm 단위(예: 12mm, 20mm, 22mm).",
   };
+  let vocabDirty = false;
+  const nk = (s) => String(s || "").normalize("NFC").replace(/\s+/g, "").toLowerCase();  // 중복 비교 키
+  function vocChipHTML(v) {
+    return `<span class="voc-chip" draggable="true"><span class="voc-chip-t">${esc(v)}</span><button class="voc-x" title="삭제" aria-label="삭제">✕</button></span>`;
+  }
+  function collectGroup(card) {
+    return [...card.querySelectorAll(".voc-chip .voc-chip-t")].map((e) => e.textContent);
+  }
+  function updateVocCount(card) {
+    card.querySelector(".voc-cnt").textContent = `(${card.querySelectorAll(".voc-chip").length})`;
+  }
+  function vocMsg(card, text) {
+    const m = card.querySelector(".voc-msg");
+    m.textContent = text; m.style.opacity = "1";
+    clearTimeout(m._t); m._t = setTimeout(() => { m.style.opacity = "0"; }, 1600);
+  }
+  function addVocValue(card, raw) {
+    const val = String(raw || "").normalize("NFC").trim();
+    if (!val) return false;
+    const existing = collectGroup(card).map(nk);
+    if (existing.includes(nk(val))) {
+      const chips = [...card.querySelectorAll(".voc-chip")];
+      const dup = chips.find((c) => nk(c.querySelector(".voc-chip-t").textContent) === nk(val));
+      if (dup) { dup.classList.remove("dup"); void dup.offsetWidth; dup.classList.add("dup"); }
+      vocMsg(card, "이미 있는 값입니다");
+      return false;
+    }
+    card.querySelector(".voc-add").insertAdjacentHTML("beforebegin", vocChipHTML(val));
+    updateVocCount(card); vocabDirty = true;
+    return true;
+  }
   async function openVocab() {
     await loadVocab();
+    vocabDirty = false;
     app.innerHTML = `
       <div class="admin-top">
         <h1>속성값 관리</h1>
         <div style="flex:1"></div>
         <button class="btn" id="vocBack">← 상품 목록</button>
-        <a class="btn" href="index.html"><span aria-hidden="true">🛍️</span> 카탈로그</a>
+        <a class="btn" id="vocCatalog" href="index.html"><span aria-hidden="true">🛍️</span> 카탈로그</a>
         <button class="btn brand" id="vocSave">저장</button>
       </div>
-      <div class="notice" style="margin-bottom:14px">한 줄에 값 하나. <b>순서 = 드롭다운 표시 순서</b>. 저장하면 <b>상품 등록/수정 폼</b>과 <b>카탈로그 필터</b>에 반영됩니다. (비워두면 기본값 사용)</div>
-      <div style="display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:16px;align-items:start">
+      <div class="notice" style="margin-bottom:14px">칩의 <b>✕</b>로 삭제 · 아래 칸에 입력 후 <b>Enter</b>로 추가 · <b>드래그</b>로 순서 변경. 저장하면 <b>상품 폼</b>과 <b>카탈로그 필터</b>에 반영됩니다. (비우면 기본값)</div>
+      <div class="voc-grid">
         ${VOCAB_GROUPS.map((k) => {
           const vals = vocabOf(k);
-          return `<div style="background:var(--panel);border:1px solid var(--border);border-radius:12px;padding:14px">
-            <div style="font-weight:700;font-size:15px;margin-bottom:2px">${k} <span style="color:var(--muted);font-weight:400">(${vals.length})</span></div>
-            <div style="color:var(--muted);font-size:12.5px;margin-bottom:8px">${VOCAB_HINT[k] || ""}</div>
-            <textarea class="vocab-ta" data-key="${k}" rows="${Math.min(20, Math.max(6, vals.length + 1))}"
-              style="width:100%;box-sizing:border-box;font-family:inherit;font-size:13.5px;line-height:1.7;padding:10px;border:1px solid var(--border);border-radius:10px;background:var(--panel-2,var(--panel));color:var(--text);resize:vertical">${esc(vals.join("\n"))}</textarea>
+          return `<div class="voc-card" data-group="${k}">
+            <div class="voc-head">${k} <span class="voc-cnt">(${vals.length})</span></div>
+            <div class="voc-hint">${VOCAB_HINT[k] || ""}</div>
+            <div class="voc-chips">
+              ${vals.map((v) => vocChipHTML(v)).join("")}
+              <input class="voc-add" data-group="${k}" placeholder="+ 값 추가 후 Enter" autocomplete="off">
+            </div>
+            <div class="voc-msg" aria-live="polite"></div>
           </div>`;
         }).join("")}
       </div>`;
-    document.getElementById("vocBack").addEventListener("click", showAdmin);
+    const grid = app.querySelector(".voc-grid");
+    // 삭제
+    grid.addEventListener("click", (e) => {
+      const x = e.target.closest(".voc-x");
+      if (!x) return;
+      const chip = x.closest(".voc-chip"), card = chip.closest(".voc-card");
+      chip.remove(); updateVocCount(card); vocabDirty = true;
+    });
+    // 추가(Enter / 포커스 이탈)
+    grid.addEventListener("keydown", (e) => {
+      if (!e.target.classList.contains("voc-add") || e.key !== "Enter") return;
+      e.preventDefault();
+      if (addVocValue(e.target.closest(".voc-card"), e.target.value)) e.target.value = "";
+    });
+    grid.addEventListener("focusout", (e) => {
+      if (e.target.classList && e.target.classList.contains("voc-add") && e.target.value.trim()) {
+        if (addVocValue(e.target.closest(".voc-card"), e.target.value)) e.target.value = "";
+      }
+    });
+    // 드래그 정렬(같은 그룹 안)
+    let vDrag = null;
+    grid.addEventListener("dragstart", (e) => { const c = e.target.closest(".voc-chip"); if (!c) return; vDrag = c; setTimeout(() => c.classList.add("dragging"), 0); });
+    grid.addEventListener("dragend", () => { if (!vDrag) return; const card = vDrag.closest(".voc-card"); vDrag.classList.remove("dragging"); vocabDirty = true; updateVocCount(card); vDrag = null; });
+    grid.addEventListener("dragover", (e) => {
+      if (!vDrag) return;
+      const card = e.target.closest(".voc-card");
+      if (!card || card !== vDrag.closest(".voc-card")) return;   // 같은 그룹만
+      e.preventDefault();
+      const wrap = card.querySelector(".voc-chips");
+      const chips = [...wrap.querySelectorAll(".voc-chip:not(.dragging)")];
+      let best = { d: Infinity, el: null, before: true };
+      for (const el of chips) {
+        const b = el.getBoundingClientRect(), cx = b.left + b.width / 2, cy = b.top + b.height / 2;
+        const d = Math.hypot(e.clientX - cx, e.clientY - cy);
+        if (d < best.d) best = { d, el, before: (e.clientY < cy - 2) || (Math.abs(e.clientY - cy) <= b.height / 2 && e.clientX < cx) };
+      }
+      const addInput = wrap.querySelector(".voc-add");
+      if (!best.el) wrap.insertBefore(vDrag, addInput);
+      else wrap.insertBefore(vDrag, best.before ? best.el : best.el.nextSibling);
+    });
+
+    const leave = async (go) => {
+      if (vocabDirty && !await uiConfirm("저장하지 않은 변경이 있습니다.\n나갈까요?", { okText: "나가기", cancelText: "계속 편집", danger: true })) return;
+      go();
+    };
+    document.getElementById("vocBack").addEventListener("click", () => leave(showAdmin));
+    document.getElementById("vocCatalog").addEventListener("click", (e) => { e.preventDefault(); leave(() => { location.href = "index.html"; }); });
     document.getElementById("vocSave").addEventListener("click", saveVocab);
   }
   async function saveVocab() {
-    const payload = [...document.querySelectorAll(".vocab-ta")].map((ta) => ({
-      key: ta.dataset.key,
-      values: ta.value.split("\n").map((s) => s.trim()).filter(Boolean),
-    }));
-    // 중복 값 경고(같은 그룹 안)
-    for (const p of payload) {
-      const dup = p.values.filter((x, i) => p.values.indexOf(x) !== i);
-      if (dup.length && !await uiConfirm(`[${p.key}]에 중복 값이 있습니다: ${[...new Set(dup)].join(", ")}\n그대로 저장할까요?`, { okText: "저장", danger: false })) return;
-    }
+    // 입력 칸에 남은 값 반영
+    app.querySelectorAll(".voc-add").forEach((inp) => { if (inp.value.trim()) { if (addVocValue(inp.closest(".voc-card"), inp.value)) inp.value = ""; } });
+    const payload = VOCAB_GROUPS.map((k) => {
+      const card = app.querySelector(`.voc-card[data-group="${k}"]`);
+      return { key: k, values: collectGroup(card).map((s) => s.trim()).filter(Boolean) };
+    });
     const btn = document.getElementById("vocSave"); btn.disabled = true; btn.textContent = "저장 중…";
     const { error } = await sb.from("vocab_config").upsert(payload, { onConflict: "key" });
     btn.disabled = false; btn.textContent = "저장";
     if (error) { alert("저장 실패: " + error.message + "\n\n(vocab_config 테이블이 없으면 supabase_vocab_config.sql 먼저 실행하세요)"); return; }
+    vocabDirty = false;
     await loadVocab();
     try { signalCatalog(); } catch (e) {}
     alert("저장 완료! 상품 폼·카탈로그 필터에 반영됩니다.");
