@@ -10,7 +10,7 @@
   <title>관리자 — 상품 관리</title>
   <!-- 테마: 모바일(≤860px) 라이트 고정, 데스크톱은 저장값(모든 페이지 동일 로직) -->
   <script>document.documentElement.dataset.theme = window.matchMedia("(max-width: 860px)").matches ? "light" : (localStorage.getItem("theme") || "light");</script>
-  <link rel="stylesheet" href="styles.css?v=113" />
+  <link rel="stylesheet" href="styles.css?v=114" />
   <style>
     .admin-wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
     .admin-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
@@ -19,11 +19,16 @@
     .admin-search svg { position: absolute; left: 14px; top: 50%; transform: translateY(-50%);
       width: 16px; height: 16px; color: var(--muted); pointer-events: none; }
     .admin-search input {
-      width: 100%; padding: 11px 16px 11px 40px; border: 1px solid transparent;
+      width: 100%; padding: 11px 72px 11px 40px; border: 1px solid transparent;
       border-radius: var(--radius-pill); background: var(--panel-2); color: var(--text);
       font-size: 14px; outline: none; transition: background .12s, border-color .12s, box-shadow .12s; }
     .admin-search input::placeholder { color: var(--muted); }
     .admin-search input:focus { background: var(--panel); border-color: var(--brand); box-shadow: 0 0 0 3px var(--brand-soft); }
+    .admin-search-go {
+      position: absolute; right: 5px; top: 50%; transform: translateY(-50%);
+      padding: 6px 14px; border: none; border-radius: var(--radius-pill);
+      background: var(--brand); color: #fff; font-size: 13px; font-weight: 700; cursor: pointer; transition: background .12s; }
+    .admin-search-go:hover { background: var(--brand-press); }
     #adminTheme { font-size: 16px; }
     .notice { background: var(--brand-soft); border: 1px solid var(--border); border-radius: var(--radius-sm);
               padding: 14px 16px; color: var(--text); line-height: 1.6; }
@@ -207,7 +212,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-  <script src="config.js?v=113"></script>
+  <script src="config.js?v=114"></script>
   <script>
   // ====== 상수 ======
   const S = (CONFIG && CONFIG.SUPABASE) || {};
@@ -299,11 +304,12 @@
         <div class="admin-search">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" aria-hidden="true"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
           <input id="q" placeholder="상품명 검색…">
+          <button class="admin-search-go" id="qBtn" aria-label="검색">검색</button>
         </div>
         <button class="btn icon-only" id="adminTheme" title="다크/라이트 전환" aria-label="테마 전환">🌙</button>
         <button class="btn" id="colBtn" title="카탈로그 표 컬럼 순서/이름/노출 관리">📋 표 컬럼</button>
         <button class="btn" id="vocabBtn" title="기종·구조·커넥터·규격 드롭다운 선택지(어휘집) 추가/수정">🧩 속성값</button>
-        <button class="btn" id="valBtn" title="기종·호환·재질 등 필터 값 일괄 변경/정리">🏷️ 값 정리</button>
+        <button class="btn" id="valBtn" style="display:none" title="기종·호환·재질 등 필터 값 일괄 변경/정리">🏷️ 값 정리</button>
         <button class="btn" id="backupBtn" title="현재 DB 전체를 zip으로 백업 다운로드">💾 백업</button>
         <button class="btn" id="restoreBtn" title="백업 zip으로 DB 되돌리기">♻️ 복원</button>
         <input type="file" id="restoreFile" accept=".zip,.json" style="display:none">
@@ -321,10 +327,15 @@
     document.getElementById("restoreBtn").addEventListener("click", () => document.getElementById("restoreFile").click());
     document.getElementById("restoreFile").addEventListener("change", (e) => { if (e.target.files[0]) restoreDb(e.target.files[0]); e.target.value = ""; });
     let qT;   // 검색 디바운스: 타이핑마다 618행 재렌더 방지
-    document.getElementById("q").addEventListener("input", (e) => {
+    const qEl = document.getElementById("q");
+    qEl.addEventListener("input", (e) => {
       clearTimeout(qT);
       qT = setTimeout(() => renderList(e.target.value.trim()), 150);
     });
+    const runSearch = () => { clearTimeout(qT); renderList(qEl.value.trim()); };
+    qEl.addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); runSearch(); } });
+    const qBtn = document.getElementById("qBtn");
+    if (qBtn) qBtn.addEventListener("click", runSearch);
     const at = document.getElementById("adminTheme");
     const setThemeIcon = () => { at.textContent = document.documentElement.dataset.theme === "dark" ? "☀️" : "🌙"; };
     setThemeIcon();
