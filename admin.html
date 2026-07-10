@@ -10,7 +10,7 @@
   <title>관리자 — 상품 관리</title>
   <!-- 테마: 모바일(≤860px) 라이트 고정, 데스크톱은 저장값(모든 페이지 동일 로직) -->
   <script>document.documentElement.dataset.theme = window.matchMedia("(max-width: 860px)").matches ? "light" : (localStorage.getItem("theme") || "light");</script>
-  <link rel="stylesheet" href="styles.css?v=97" />
+  <link rel="stylesheet" href="styles.css?v=98" />
   <style>
     .admin-wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
     .admin-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
@@ -553,8 +553,6 @@
     // 스트랩 구조: 전용 컬럼(strap_type) 우선 — 결합형(=커넥터 연결)/기본형(=기종 전용). 없으면 커넥터 공용여부
     const isUniversal = rec.strap_type ? /결합|연결/.test(rec.strap_type)
       : (!rec.connector || /공용|공통|범용/.test(String(rec.connector || "")));
-    // 호환 기종 후보: 표준 기종 어휘집 + 기존 connector 값
-    const dlConn = [...new Set([...(VOCAB["기종"] || []), ...distinctVals("connector")])].map((x) => `<option value="${esc(x)}">`).join("");
     // 종류 datalist(기본 + 기존값)
     const kindOpts = [...new Set(["스마트 워치", "스마트 밴드", "골프거리계", "기타", ...distinctVals("kind")])].map((x) => `<option value="${esc(x)}">`).join("");
     // 바로가기 chip
@@ -618,7 +616,6 @@
           <div class="field"><label>③ 스트랩 너비</label><select id="f_size"></select>
             <div id="sizeLockHint" style="font-size:11.5px;color:var(--muted);margin-top:4px;display:none">결합형은 커넥터 타입에 따라 너비 자동 고정</div>
           </div>
-          <div class="field" id="connWrap" style="${isUniversal ? "display:none" : ""}"><label>호환 기종</label><input id="f_connector" list="dl_connector" value="${isUniversal ? "" : v('connector')}" placeholder="예) 갤럭시 워치 8" autocomplete="off"><datalist id="dl_connector">${dlConn}</datalist></div>
         </div>
 
         <div class="form-sec">판매 채널</div>
@@ -723,7 +720,6 @@
         syncComboSize();
         sizeHint.style.display = "";
       }
-      document.getElementById("connWrap").style.display = basic ? "" : "none";
     }
     function syncComboSize() {
       const o = CONN_COMBO[Number(conSel.value) || 0];
@@ -856,7 +852,7 @@
       });
       const costEl = document.getElementById("f_cost_cny");
       obj.cost_cny = costEl && costEl.value !== "" ? Number(costEl.value) : null;
-      // 커넥터: 스트랩 형태 토글 기준. 커넥터 연결형=공용(범용), 기종별 일체형=입력한 호환 기종
+      // 스트랩 구조 토글 기준. 결합형=공용(범용), 기본형=기종 전용(호환 기종은 기종 필드로 통합됨)
       const stSelEl = document.getElementById("f_strap_type");
       obj.strap_type = stSelEl ? stSelEl.value : "결합형";   // 결합형 / 기본형 (카드·상세 표시 기준)
       // 커넥터 타입·너비: 기본형=선택값 그대로, 결합형=조합에서 자동 확정
@@ -867,10 +863,8 @@
       } else {
         obj.strap_shape = conSel.value || null;
         obj.size = sizeSel.value || null;
-        const ce = document.getElementById("f_connector"); obj.connector = ce && ce.value.trim() ? ce.value.trim() : (rec.connector || null);
+        obj.connector = null;   // 호환 기종 = 기종(model)으로 통합, 중복 컬럼 비움
       }
-      // '커넥터 연결형' 직접 입력 시에도 표준값으로 정규화
-      if (/^커넥터\s*연결형$/.test((obj.connector || "").trim())) obj.connector = "공용(범용)";
       if (/^커넥터\s*연결형$/.test((obj.model || "").trim())) obj.model = "공용";
       const ccEl = document.getElementById("f_color_chart");
       obj.color_chart = ccEl && ccEl.value.trim() ? ccEl.value.trim() : null;
