@@ -10,7 +10,7 @@
   <title>관리자 — 상품 관리</title>
   <!-- 테마: 모바일(≤860px) 라이트 고정, 데스크톱은 저장값(모든 페이지 동일 로직) -->
   <script>document.documentElement.dataset.theme = window.matchMedia("(max-width: 860px)").matches ? "light" : (localStorage.getItem("theme") || "light");</script>
-  <link rel="stylesheet" href="styles.css?v=114" />
+  <link rel="stylesheet" href="styles.css?v=115" />
   <style>
     .admin-wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
     .admin-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
@@ -212,7 +212,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-  <script src="config.js?v=114"></script>
+  <script src="config.js?v=115"></script>
   <script>
   // ====== 상수 ======
   const S = (CONFIG && CONFIG.SUPABASE) || {};
@@ -295,6 +295,31 @@
     document.getElementById("loginBtn").addEventListener("click", go);
     document.getElementById("pw").addEventListener("keydown", (e) => { if (e.key === "Enter") go(); });
   }
+
+  // ====== 서브뷰 히스토리 (뒤로가기 시 사이트 밖으로 안 나가고 목록으로 복귀) ======
+  //  서브뷰(폼/표컬럼/속성값/값정리) 열 때 히스토리 항목 추가 → 뒤로가기/←버튼 모두 목록으로.
+  let adminSub = null;   // null=목록 | "form" | "columns" | "vocab" | "values"
+  function pushSub(name) {
+    if (adminSub) return;   // 이미 서브뷰(중첩 방지) — 서브뷰는 목록에서만 진입
+    adminSub = name;
+    try { history.pushState({ adminSub: name }, ""); } catch (e) {}
+  }
+  // 서브뷰 → 목록 복귀(←버튼·저장·폼닫기 공통): 히스토리 항목 소비 → popstate가 실제 닫기 수행
+  function backToList() {
+    if (adminSub) history.back();   // popstate에서 닫기/목록렌더
+    else showAdmin();
+  }
+  window.addEventListener("popstate", () => {
+    if (!adminSub) return;   // 이미 목록 → 브라우저가 이전 페이지(카탈로그)로 (정상)
+    const sub = adminSub;
+    // 속성값 편집 중 브라우저 뒤로가기 → 미저장 경고(취소 시 항목 재추가로 유지). native confirm은 popstate에서 동기 처리 가능.
+    if (sub === "vocab" && typeof vocabDirty !== "undefined" && vocabDirty) {
+      if (!confirm("저장하지 않은 변경이 있습니다. 나갈까요?")) { try { history.pushState({ adminSub: "vocab" }, ""); } catch (e) {} return; }
+    }
+    adminSub = null;
+    if (sub === "form") document.querySelectorAll(".modal-bg").forEach((m) => m.remove());
+    else showAdmin();        // columns/vocab/values → 목록 재렌더
+  });
 
   // ====== 관리자 화면 ======
   async function showAdmin() {
@@ -743,6 +768,7 @@
         </div>
       </div>`;
     document.body.appendChild(bg);
+    pushSub("form");   // 뒤로가기 시 폼만 닫히고 목록 유지
     // 상태 pill 선택
     bg.querySelectorAll("#statusPills .pill-opt").forEach((p) => p.addEventListener("click", () => {
       bg.querySelectorAll("#statusPills .pill-opt").forEach((x) => x.classList.toggle("on", x === p));
@@ -809,7 +835,7 @@
     let pendingSig;   // 대표 이미지 새 업로드 시 계산된 색상 지문(저장 시 기록)
     bg.querySelectorAll("input, select, textarea").forEach((el) =>
       el.addEventListener("input", () => { dirty = true; }));
-    const close = () => bg.remove();
+    const close = () => backToList();   // 히스토리 항목 소비 → popstate가 모달 제거
     let closing = false;
     const guardedClose = async () => {
       if (closing) return;
@@ -1131,6 +1157,7 @@
     }));
   }
   async function openColumns() {
+    pushSub("columns");
     // 후보 컬럼 = COLUMN_MAP 의 한글 헤더(표에 나올 수 있는 모든 컬럼)
     const candidates = Object.values(FIELDS);
     const defHide = new Set((typeof CONFIG !== "undefined" && CONFIG.HIDE_COLUMNS) || []);
@@ -1155,7 +1182,7 @@
       </div>
       <div class="notice" style="margin-bottom:14px">⋮⋮ 드래그로 <b>순서</b> · 이름 <b>수정</b>(비우면 원래 이름) · <b>노출</b> 체크 해제하면 표에서 숨김. 저장하면 카탈로그 <b>리스트(표) 보기</b>에 반영됩니다.</div>
       <div id="colList">${list.map(colRowHtml).join("")}</div>`;
-    document.getElementById("colBack").addEventListener("click", showAdmin);
+    document.getElementById("colBack").addEventListener("click", backToList);
     document.getElementById("colSave").addEventListener("click", saveColumns);
     const cont = document.getElementById("colList");
     cont.querySelectorAll(".cat-row").forEach(bindColRow);
@@ -1188,7 +1215,7 @@
     }
     try { signalCatalog(); } catch (e) {}
     alert("저장 완료! 카탈로그 표 보기를 새로고침하면 반영됩니다.");
-    showAdmin();
+    backToList();
   }
 
   // ====== 값 일괄 정리 (기종·호환·재질·체결·베이스규격 값 한 번에 바꾸기) ======
@@ -1221,11 +1248,11 @@
           <input class="cat-label" style="width:280px" value="${esc(v)}">
           <span class="cat-key">${counts[v]}개</span>
         </div>`).join("") : `<div class="notice">이 항목에 값이 없습니다.</div>`}</div>`;
-    document.getElementById("valBack").addEventListener("click", showAdmin);
+    document.getElementById("valBack").addEventListener("click", backToList);
     document.getElementById("valField").addEventListener("change", (e) => { valCol = e.target.value; renderValues(); });
     document.getElementById("valSave").addEventListener("click", saveValues);
   }
-  async function openValues() { valCol = "model"; renderValues(); }
+  async function openValues() { pushSub("values"); valCol = "model"; renderValues(); }
   async function saveValues() {
     const els = [...document.querySelectorAll("#valList .cat-row")];
     const changes = els.map((el) => ({ old: el.dataset.old, neu: el.querySelector(".cat-label").value.trim() }))
@@ -1290,6 +1317,7 @@
     return true;
   }
   async function openVocab() {
+    pushSub("vocab");
     await loadVocab();
     vocabDirty = false;
     app.innerHTML = `
@@ -1360,7 +1388,7 @@
       if (vocabDirty && !await uiConfirm("저장하지 않은 변경이 있습니다.\n나갈까요?", { okText: "나가기", cancelText: "계속 편집", danger: true })) return;
       go();
     };
-    document.getElementById("vocBack").addEventListener("click", () => leave(showAdmin));
+    document.getElementById("vocBack").addEventListener("click", () => leave(backToList));
     document.getElementById("vocCatalog").addEventListener("click", (e) => { e.preventDefault(); leave(() => { location.href = "index.html"; }); });
     document.getElementById("vocSave").addEventListener("click", saveVocab);
   }
@@ -1379,7 +1407,7 @@
     await loadVocab();
     try { signalCatalog(); } catch (e) {}
     alert("저장 완료! 상품 폼·카탈로그 필터에 반영됩니다.");
-    showAdmin();
+    backToList();
   }
 
   boot();
