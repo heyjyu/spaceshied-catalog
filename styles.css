@@ -924,3 +924,14 @@ main { padding: 18px 24px 48px; max-width: 1400px; margin: 0 auto; }
 .color-pop .cp-copy:hover { background: var(--bg); border-color: var(--brand); color: var(--brand); }
 [data-theme="dark"] .color-pop .cp-dot { border-color: rgba(255,255,255,.22); }
 @media (prefers-reduced-motion: reduce) { .color-pop { transition: opacity .12s; transform: none; } }
+
+/* 컬러 팝업 — 여러 차트(중국/한국) 전환 (v108) */
+.color-pop .cp-chart-wrap { margin-top: 11px; }
+.color-pop .cp-chart-label { font-size: 12px; font-weight: 600; color: var(--muted); margin-bottom: 5px; }
+.color-pop .cp-chart-wrap .cp-chart { margin-top: 0; }
+.color-pop .cp-thumbs { display: flex; gap: 6px; margin-top: 7px; }
+.color-pop .cp-th {
+  width: 46px; height: 46px; object-fit: cover; border-radius: 8px; cursor: pointer;
+  border: 2px solid transparent; background: var(--bg);
+}
+.color-pop .cp-th.on { border-color: var(--brand); }

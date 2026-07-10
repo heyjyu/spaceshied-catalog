@@ -1256,17 +1256,28 @@ function showColorPopup(r, anchor) {
   const colorRaw = colorFacet ? String(r[colorFacet.key] || "").trim() : "";
   const buckets = colorBuckets(colorRaw);
   const hex = CONFIG.COLOR_HEX || {};
-  const chart = String(r.__colorChart || "").trim();
-  if (!buckets.length && !colorRaw && !chart) { showToast("등록된 컬러차트/색상이 없습니다"); return; }
+  // 컬러차트류(중국·한국) 모두 수집 — 있는 것만
+  const charts = [
+    ["중국 컬러차트", String(r.__colorChart || "").trim()],
+    ["한국 컬러차트", String(r.__colorChartKr || "").trim()],
+  ].filter(([, u]) => u);
+  if (!buckets.length && !colorRaw && !charts.length) { showToast("등록된 컬러차트/색상이 없습니다"); return; }
   const pop = document.createElement("div");
   pop.className = "color-pop";
+  const chartsHtml = charts.length ? `
+    <div class="cp-chart-wrap">
+      <div class="cp-chart-label" id="cpLabel">${esc(charts[0][0])}</div>
+      <img class="cp-chart" id="cpMain" src="${esc(charts[0][1])}" alt="컬러차트" title="클릭하면 이미지 복사">
+      ${charts.length > 1 ? `<div class="cp-thumbs">${charts.map(([label, u], i) =>
+        `<img class="cp-th${i === 0 ? " on" : ""}" data-i="${i}" src="${esc(u)}" title="${esc(label)}" alt="${esc(label)}">`).join("")}</div>` : ""}
+    </div>
+    <button class="cp-copy">📋 이 차트 이미지 복사 (발주용)</button>` : "";
   pop.innerHTML =
     `<div class="cp-head">🎨 ${cc ? `색상 ${cc}종` : "색상"}</div>` +
     (buckets.length ? `<div class="cp-sw">${buckets.map((c) =>
       `<span class="cp-chip"><span class="cp-dot" style="background:${hex[c] || "#ccc"}"></span>${esc(c)}</span>`).join("")}</div>` : "") +
     (colorRaw && !buckets.length ? `<div class="cp-list">${esc(colorRaw)}</div>` : "") +
-    (chart ? `<img class="cp-chart" src="${esc(chart)}" alt="컬러차트" title="클릭하면 이미지 복사">
-              <button class="cp-copy">📋 차트 이미지 복사 (발주용)</button>` : "");
+    chartsHtml;
   document.body.appendChild(pop);
   // 앵커(팔레트 버튼) 위에 띄우되, 위 공간 없으면 아래로. 화면 밖으로 안 나가게 보정.
   const b = anchor.getBoundingClientRect();
@@ -1279,10 +1290,19 @@ function showColorPopup(r, anchor) {
   pop.style.transformOrigin = below ? "top center" : "bottom center";
   void pop.offsetHeight;              // 강제 리플로우 → 초기(opacity0·scale) 확정 후 전이 재생(rAF 없이도 "뿅")
   pop.classList.add("show");
-  const img = pop.querySelector(".cp-chart");
-  if (img) img.addEventListener("click", () => copyImageToClipboard(chart));
+  let curChart = charts.length ? charts[0][1] : "";
+  const mainImg = pop.querySelector("#cpMain");
+  const label = pop.querySelector("#cpLabel");
+  pop.querySelectorAll(".cp-th").forEach((th) => th.addEventListener("click", () => {
+    const c = charts[Number(th.dataset.i)];
+    curChart = c[1];
+    if (mainImg) mainImg.src = c[1];
+    if (label) label.textContent = c[0];
+    pop.querySelectorAll(".cp-th").forEach((x) => x.classList.toggle("on", x === th));
+  }));
+  if (mainImg) mainImg.addEventListener("click", () => copyImageToClipboard(curChart));
   const cp = pop.querySelector(".cp-copy");
-  if (cp) cp.addEventListener("click", () => copyImageToClipboard(chart));
+  if (cp) cp.addEventListener("click", () => copyImageToClipboard(curChart));
   _colorPop = pop;
   setTimeout(() => {
     document.addEventListener("mousedown", _colorPopOutside, true);
