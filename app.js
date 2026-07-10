@@ -538,6 +538,25 @@ function vocabCanon(label) {
   return m;
 }
 
+// 주어진 상품 풀에서 facet f 의 옵션 값 목록(정규표기 병합 + 정렬)
+function facetOptionValues(f, pool) {
+  const canon = vocabCanon(f.vocab || f.label);
+  const groups = new Map();  // 정규화키 → 표시값
+  pool.forEach((r) => facetValues(r, f).forEach((v) => {
+    const k = normKey(v);
+    if (!groups.has(k)) groups.set(k, canon[k] || v);
+  }));
+  let vals = [...groups.values()];
+  if (f.derive === "mm") vals.sort((a, b) => parseInt(a) - parseInt(b));
+  else if (f.derive === "color") vals.sort((a, b) => colorOrder(a) - colorOrder(b));
+  else vals.sort((a, b) => a.localeCompare(b, "ko"));
+  return vals;
+}
+function facetOptionsHTML(f, vals, cur) {
+  const optLabel = (f.label === "기종") ? connUniversalLabel : ((x) => x);
+  return `<option value="">${esc(f.label)}</option>` +
+    vals.map((v) => `<option value="${esc(v)}"${normKey(v) === normKey(cur || "") ? " selected" : ""}>${esc(optLabel(v))}</option>`).join("");
+}
 function buildFacetDropdowns(rows) {
   const wrap = $("filters");
   // 기존 facet select 제거 (stockFilter / btnClear 는 유지)
@@ -547,26 +566,27 @@ function buildFacetDropdowns(rows) {
     const sel = document.createElement("select");
     sel.className = "filter facet-select";
     sel.dataset.key = f.key;
-    // 한 셀에 여러 값이면 쪼개서 각각을 옵션으로 (derive 적용).
-    // 공백 차이로 갈라진 값은 하나로 병합(VOCAB 표준표기 우선).
-    const canon = vocabCanon(f.vocab || f.label);
-    const groups = new Map();  // 정규화키 → 표시값
-    rows.forEach((r) => facetValues(r, f).forEach((v) => {
-      const k = normKey(v);
-      if (!groups.has(k)) groups.set(k, canon[k] || v);
-    }));
-    let vals = [...groups.values()];
-    if (f.derive === "mm") vals.sort((a, b) => parseInt(a) - parseInt(b));
-    else if (f.derive === "color") vals.sort((a, b) => colorOrder(a) - colorOrder(b));
-    else vals.sort((a, b) => a.localeCompare(b, "ko"));
-    const optLabel = (f.label === "호환" || f.label === "기종") ? connUniversalLabel : ((x) => x);
-    sel.innerHTML = `<option value="">${esc(f.label)}</option>` +
-      vals.map((v) => `<option value="${esc(v)}">${esc(optLabel(v))}</option>`).join("");
+    sel.innerHTML = facetOptionsHTML(f, facetOptionValues(f, rows), filterState.facets[f.key]);
     sel.addEventListener("change", (e) => {
       filterState.facets[f.key] = e.target.value;
       applyFilters();
     });
     wrap.insertBefore(sel, stockSel);
+  }
+}
+// 필터 연동: 각 facet 드롭다운을 "그 facet 제외한 나머지 필터 결과"에 있는 값으로 좁힘.
+// (자기 자신은 제외 → 고른 값이 사라지지 않음, 현재 선택값은 풀에 없어도 유지)
+function refreshFacetOptions() {
+  if (!facetCols.length) return;
+  for (const f of facetCols) {
+    const sel = document.querySelector(`select.facet-select[data-key="${(window.CSS && CSS.escape) ? CSS.escape(f.key) : f.key}"]`);
+    if (!sel) continue;
+    const cur = filterState.facets[f.key] || "";
+    const pool = allRows.filter((r) => matchRow(r, f.key));
+    let vals = facetOptionValues(f, pool);
+    if (cur && !vals.some((v) => normKey(v) === normKey(cur))) vals = [...vals, cur];  // 고른 값은 유지
+    sel.innerHTML = facetOptionsHTML(f, vals, cur);
+    sel.value = cur;
   }
 }
 
@@ -682,6 +702,7 @@ function buildView(rows) {
     table.setFilter(matchRow);
     renderStats();
     updateFilterCount();
+    refreshFacetOptions();   // 초기/해시복원 필터에 맞춰 목록 연동
     updateFavUI();
     renderCatNav();
     setView(viewMode); // 모바일 기본 갤러리 등 현재 뷰모드 반영
@@ -696,7 +717,8 @@ function buildView(rows) {
 }
 
 // ---- 필터 ----------------------------------------------------------
-function matchRow(data) {
+// exceptFacetKey: 그 facet 조건은 건너뜀(필터 연동 시 자기 자신 제외용). Tabulator는 (data)만 넘김 → 전체 필터.
+function matchRow(data, exceptFacetKey) {
   if (filterState.category && productGroup(data) !== filterState.category) return false;
   if (filterState.lifecycle && statusKey(data) !== filterState.lifecycle) return false;
   if (filterState.favOnly && !isFav(data)) return false;
@@ -711,6 +733,7 @@ function matchRow(data) {
     if (!tokens.every((t) => hay.includes(t) || hayNS.includes(t.replace(/\s+/g, "")))) return false;
   }
   for (const f of facetCols) {
+    if (exceptFacetKey && f.key === exceptFacetKey) continue;
     const val = filterState.facets[f.key];
     if (val && !facetValues(data, f).some((v) => normKey(v) === normKey(val))) return false;
   }
@@ -725,6 +748,7 @@ function applyFilters() {
   table.refreshFilter();
   renderStats();
   updateFilterCount();
+  refreshFacetOptions();   // 필터 연동: 다른 필터 목록을 현재 결과에 맞게 좁힘
   if (viewMode === "gallery") renderGallery();
   updateFilterHash();
 }
