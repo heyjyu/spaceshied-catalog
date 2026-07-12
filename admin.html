@@ -10,7 +10,7 @@
   <title>관리자 — 상품 관리</title>
   <!-- 테마: 모바일(≤860px) 라이트 고정, 데스크톱은 저장값(모든 페이지 동일 로직) -->
   <script>document.documentElement.dataset.theme = window.matchMedia("(max-width: 860px)").matches ? "light" : (localStorage.getItem("theme") || "light");</script>
-  <link rel="stylesheet" href="styles.css?v=116" />
+  <link rel="stylesheet" href="styles.css?v=117" />
   <style>
     .admin-wrap { max-width: 1100px; margin: 0 auto; padding: 20px 16px 60px; }
     .admin-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin-bottom: 22px; }
@@ -212,7 +212,7 @@
 
   <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
   <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
-  <script src="config.js?v=116"></script>
+  <script src="config.js?v=117"></script>
   <script>
   // ====== 상수 ======
   const S = (CONFIG && CONFIG.SUPABASE) || {};
@@ -370,8 +370,7 @@
       try { localStorage.setItem("theme", next); } catch (e) {}
       setThemeIcon();
     });
-    await loadVocab();   // 폼 드롭다운 선택지(어휘집)를 DB에서 먼저 로드
-    await loadRows();
+    await Promise.all([loadVocab(), loadRows()]);   // 어휘집·상품목록 병렬 로드(순차 대기 제거)
   }
 
   // ====== 이미지 리사이즈/최적화 ======
@@ -476,24 +475,46 @@
     } catch (e) { alert("복원 실패: " + (e.message || e) + "\n(로그인/네트워크 확인)"); }
   }
 
-  async function loadRows() {
-    const { data, error } = await sb.from(TABLE).select("*").order("sort", { ascending: true, nullsFirst: false });
+  // 목록 렌더 + ?edit=ID 자동 폼 오픈 (캐시/네트워크 공용)
+  function afterRowsLoaded() {
     const listEl = document.getElementById("list");
-    if (error) { if (listEl) listEl.innerHTML = `<div class="notice">목록 오류: ${esc(error.message)}</div>`; return; }
-    rows = data || [];
-    if (!listEl) return;   // 다른 화면(값 정리·표 컬럼 등)에 있으면 목록 렌더 건너뜀
-    const q = document.getElementById("q");        // 수정/삭제 후에도 검색 결과 유지
-    renderList(q ? q.value.trim() : "");
+    if (listEl) {
+      const q = document.getElementById("q");      // 수정/삭제 후에도 검색 결과 유지
+      renderList(q ? q.value.trim() : "");
+    }
     // 카탈로그 상세 '수정' 링크(admin.html?edit=ID)로 진입 시 해당 상품 폼 자동 오픈(1회)
-    if (!loadRows._editHandled) {
+    if (!afterRowsLoaded._editHandled) {
       const editId = new URLSearchParams(location.search).get("edit");
       if (editId) {
-        loadRows._editHandled = true;
         const rec = rows.find((x) => String(x.id) === String(editId));
-        if (rec) openForm(rec);
+        if (!rec) return;                          // 캐시에 아직 없으면 네트워크 도착 후 재시도
+        afterRowsLoaded._editHandled = true;
+        openForm(rec);
         history.replaceState(null, "", location.pathname);  // URL 정리(새로고침 시 재오픈 방지)
       }
     }
+  }
+
+  async function loadRows() {
+    // ⚡ 카탈로그가 캐시해둔 데이터(catalog_cache_v1: prods select=* + vocab)로 먼저 그리기.
+    //    '관리자 수정'은 카탈로그에서 넘어오므로 캐시가 방금 것 → 폼이 네트워크 대기 없이 즉시 열림.
+    if (!rows.length) {
+      try {
+        const c = JSON.parse(localStorage.getItem("catalog_cache_v1") || "null");
+        if (c && Array.isArray(c.prods) && c.prods.length) {
+          rows = c.prods.slice().sort((a, b) => (a.sort ?? 9e9) - (b.sort ?? 9e9));
+          if (Array.isArray(c.vocab) && !Object.keys(vocabCfg).length)
+            vocabCfg = Object.fromEntries(c.vocab.map((r) => [r.key, Array.isArray(r.values) ? r.values : []]));
+          afterRowsLoaded();
+        }
+      } catch (e) {}
+    }
+    const { data, error } = await sb.from(TABLE).select("*").order("sort", { ascending: true, nullsFirst: false });
+    const listEl = document.getElementById("list");
+    if (error) { if (listEl && !rows.length) listEl.innerHTML = `<div class="notice">목록 오류: ${esc(error.message)}</div>`; return; }
+    rows = data || [];
+    if (!listEl) return;   // 다른 화면(값 정리·표 컬럼 등)에 있으면 목록 렌더 건너뜀
+    afterRowsLoaded();
   }
 
   const selected = new Set();   // 선택된 상품 id
