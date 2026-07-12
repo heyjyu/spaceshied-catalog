@@ -6,7 +6,7 @@
   <title>런칭 매트릭스 — 베이스 × 커넥터 출시 현황</title>
   <!-- 테마: 모바일(≤860px) 라이트 고정, 데스크톱은 저장값(모든 페이지 동일 로직) -->
   <script>document.documentElement.dataset.theme = window.matchMedia("(max-width: 860px)").matches ? "light" : (localStorage.getItem("theme") || "light");</script>
-  <link rel="stylesheet" href="styles.css?v=117" />
+  <link rel="stylesheet" href="styles.css?v=118" />
   <style>
     .map-wrap { padding: 18px 24px 80px; }
     .map-head h1 { font-size: 26px; font-weight: 800; letter-spacing: -.03em; margin: 4px 0 2px; }
@@ -126,7 +126,7 @@
   <a class="fab" href="admin.html" title="신제품 등록">＋</a>
   <aside id="drawer"><button class="close" id="drawerClose">×</button><div id="drawerBody"></div></aside>
 
-  <script src="config.js"></script>
+  <script src="config.js?v=118"></script>
   <script>
   const S = (CONFIG.SUPABASE && CONFIG.SUPABASE.URL && CONFIG.SUPABASE.ANON_KEY) ? CONFIG.SUPABASE : null;
 
@@ -270,9 +270,13 @@
 
   (function load(){
     if(S){
+      // ⚡ 카탈로그 캐시(catalog_cache_v1)로 먼저 그리기(전환 즉시 표시) → 네트워크는 백그라운드 갱신
+      let cached=false;
+      try{ const c=JSON.parse(localStorage.getItem("catalog_cache_v1")||"null");
+        if(c&&Array.isArray(c.prods)&&c.prods.length){ PRODUCTS=c.prods; build(); cached=true; } }catch(e){}
       fetch(`${S.URL}/rest/v1/${S.TABLE||"products"}?select=*`,{headers:{apikey:S.ANON_KEY,Authorization:`Bearer ${S.ANON_KEY}`}})
-        .then(r=>r.json()).then(d=>{ PRODUCTS=Array.isArray(d)?d:[]; build(); })
-        .catch(err=>document.getElementById("status").textContent="불러오기 실패: "+err);
+        .then(r=>r.json()).then(d=>{ if(Array.isArray(d)&&d.length){ PRODUCTS=d; build(); } })
+        .catch(err=>{ if(!cached) document.getElementById("status").textContent="불러오기 실패: "+err; });
     } else {
       fetch("sample-data.csv").then(r=>r.text()).then(t=>{
         const [h,...lines]=t.trim().split(/\r?\n/); const cols=h.split(",");
