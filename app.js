@@ -144,6 +144,32 @@ async function copyImageToClipboard(url) {
   }
 }
 
+// 관리자 세션 유지: 카탈로그에서도 관리자 토큰이 있으면 supabase-js를 얹어 세션 자동 갱신.
+//  (관리자 access 토큰은 ~1시간이면 만료 → 갱신 안 하면 카탈로그의 관리자 기능이 사라짐)
+//  일반 방문자는 토큰이 없어 라이브러리를 로드하지 않음 → 공개 카탈로그는 그대로 가벼움.
+function keepAdminSessionAlive() {
+  try {
+    const s = CONFIG.SUPABASE || {};
+    const ref = (s.URL || "").match(/https?:\/\/([^.]+)\./);
+    if (!ref) return;
+    if (!localStorage.getItem(`sb-${ref[1]}-auth-token`)) return;   // 관리자 토큰 없으면 스킵
+    if (window._sbAdmin || document.getElementById("sbjs")) return;
+    const sc = document.createElement("script");
+    sc.id = "sbjs";
+    sc.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2";
+    sc.onload = () => {
+      try {
+        window._sbAdmin = window.supabase.createClient(s.URL, s.ANON_KEY);   // 기본 옵션=자동갱신·persistSession(admin과 동일 storageKey)
+        // 만료됐던 세션이 갱신되면(TOKEN_REFRESHED 등) 열려 있는 상세를 다시 그려 관리자 UI 복원
+        window._sbAdmin.auth.onAuthStateChange(() => {
+          if (isAdminLoggedIn() && _openId != null) { const r = productById(_openId); if (r) openDetail(r); }
+        });
+      } catch (e) {}
+    };
+    document.head.appendChild(sc);
+  } catch (e) {}
+}
+
 // 관리자 로그인 여부: Supabase 세션 토큰(localStorage)이 있고 만료 전이면 true
 function isAdminLoggedIn() {
   try {
@@ -1969,6 +1995,7 @@ function init() {
   document.addEventListener("visibilitychange", () => { if (document.visibilityState === "visible") autoRefresh(); });
   window.addEventListener("focus", autoRefresh);
 
+  keepAdminSessionAlive();   // 관리자 토큰 있으면 세션 자동 갱신(관리자 기능 1시간 뒤 사라짐 방지)
   loadData();
 }
 
