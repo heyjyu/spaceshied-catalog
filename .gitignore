@@ -13,3 +13,4 @@ tabs.json
 .env
 naver_sync_report.html
 naver_sync_approved.*
+__pycache__/

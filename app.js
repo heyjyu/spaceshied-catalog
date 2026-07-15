@@ -156,7 +156,7 @@ function keepAdminSessionAlive() {
     if (window._sbAdmin || document.getElementById("sbjs")) return;
     const sc = document.createElement("script");
     sc.id = "sbjs";
-    sc.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2";
+    sc.src = "https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.110.5";
     sc.onload = () => {
       try {
         window._sbAdmin = window.supabase.createClient(s.URL, s.ANON_KEY);   // 기본 옵션=자동갱신·persistSession(admin과 동일 storageKey)
