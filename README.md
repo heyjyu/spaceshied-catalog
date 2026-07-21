@@ -1,7 +1,7 @@
 # 스페이스쉴드 워치 스트랩 카탈로그
 
 워치 스트랩을 **검색·필터**하고 **클릭하면 큰 이미지 + 속성값**을 보여주는 내부 관리용 웹앱.
-라이브: https://heyjyu.github.io/spaceshied-catalog/
+라이브: https://demian247.github.io/spaceshied-catalog/
 
 > ## ⚠️ 이 README는 초기(구글시트 시절) 문서입니다
 > **데이터 정본은 이제 구글시트가 아니라 Supabase이고, 관리는 `admin.html`로 합니다.**

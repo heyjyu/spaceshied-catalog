@@ -11,11 +11,11 @@
 ## 스택 / 실행 / 배포
 - **빌드 없는 정적 웹앱**: `index.html`(카탈로그) + `app.js` + `config.js` + `styles.css`, `admin.html`(관리자). 부가: `map.html`, `pipeline.html`, `verify.html`.
 - **실행/검증**: preview 도구 launch.json `catalog`(포트 8123). preview 웹뷰는 백그라운드라 scroll/rAF/IntersectionObserver/lazy-img가 정지됨 — 관련 검증은 수동 호출로.
-- **배포**: `git@github.com:heyjyu/spaceshied-catalog.git` → GitHub Pages(main/root). 라이브 https://heyjyu.github.io/spaceshied-catalog/
+- **배포**: `git@github.com:demian247/spaceshied-catalog.git` → GitHub Pages(main/root). 라이브 https://demian247.github.io/spaceshied-catalog/
 - **작업 규칙**: 변경 → preview 검증 → 선택 커밋(`git add <파일>`) → push (자동, 묻지 않음).
 - **캐시버스팅 ⚠️**: CSS/JS 바꾸면 4개 HTML 전부 `?v=` +1:
   `sed -i '' 's/?v=OLD/?v=NEW/g' index.html admin.html pipeline.html map.html` — **현재 v=92**
-- Pages 빌드가 가끔 인프라 장애로 errored → `gh api -X POST repos/heyjyu/spaceshied-catalog/pages/builds`로 재빌드. `.nojekyll` 있음.
+- Pages 빌드가 가끔 인프라 장애로 errored → `gh api -X POST repos/demian247/spaceshied-catalog/pages/builds`로 재빌드. `.nojekyll` 있음.
 
 ## 데이터 (Supabase)
 - URL/anon키는 `config.js` SUPABASE. products **618개**. 관리는 admin.html(이메일 로그인)로만.

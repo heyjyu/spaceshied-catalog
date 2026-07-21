@@ -11,7 +11,7 @@
 
 ## 이 repo 규칙 (어기면 인수인계가 깨짐)
 - **DB 변경은 대시보드 클릭 말고 SQL 파일로** 만들고 커밋. (컬럼을 대시보드로 추가해온 게 이 앱의 최대 부채)
-- **이미지는 Supabase Storage(`product-images`)로만.** GitHub Pages 경로(`heyjyu.github.io/...`)를 DB에 넣지 말 것 — 계정 이전 시 깨짐. 신규 업로드는 admin이 이미 Storage 사용 + `thumbs/` 썸네일 생성(그 방식 유지).
+- **이미지는 Supabase Storage(`product-images`)로만.** GitHub Pages 경로(`demian247.github.io/...`)를 DB에 넣지 말 것 — 계정 이전 시 깨짐. 신규 업로드는 admin이 이미 Storage 사용 + `thumbs/` 썸네일 생성(그 방식 유지).
 - **캐시버스팅 수동:** JS/CSS 고치면 `?v=118` 을 **4개 HTML(index/admin/map/pipeline) 전부** +1. 하나라도 빠뜨리면 버전 섞임.
 - **CDN 고정 유지:** `@supabase/supabase-js@2.110.5`. `@2`로 되돌리지 말 것.
 - **한글 NFC/NFD:** 엑셀·네이버발 한글은 NFD(자모분리)로 들어와 검색에 안 걸림. 비교·검색 로직엔 항상 `.normalize("NFC")`. 쓰는 쪽 정규화는 아직 미완이라 언제든 재발.
