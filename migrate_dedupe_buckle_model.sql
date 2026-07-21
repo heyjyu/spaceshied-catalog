@@ -15,6 +15,12 @@ update products set buckle = '마그네틱' where buckle = '마그네틱형';  -
 -- ② 기종: '워치' 누락 표기 → 표준(갤럭시 워치 울트라)
 update products set model = '갤럭시 워치 울트라' where model in ('갤럭시 울트라', '갤럭시 울트라 47mm');  -- 12건
 
+-- ③ 고정타입 나머지 '~형' 제거 (대표 요청 2026-07-08). ①②를 이미 실행했어도 재실행 무해(no-op).
+update products set buckle = '일체'       where buckle = '일체형';        -- 12건
+update products set buckle = '버터플라이' where buckle = '버터플라이형';  -- 5건
+update products set buckle = '디버클'     where buckle = '디버클형';      -- 2건
+update products set buckle = '후크'       where buckle = '후크형';        -- 3건 (일관성)
+
 -- 검증: 아래가 모두 0이어야 정상
---   select count(*) from products where buckle in ('버클형','버튼형','벨크로형','마그네틱형')
+--   select count(*) from products where buckle in ('버클형','버튼형','벨크로형','마그네틱형','일체형','버터플라이형','디버클형','후크형')
 --     or model in ('갤럭시 울트라','갤럭시 울트라 47mm');
