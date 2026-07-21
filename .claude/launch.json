@@ -6,6 +6,24 @@
       "runtimeExecutable": "python3",
       "runtimeArgs": ["-m", "http.server", "8123"],
       "port": 8123
+    },
+    {
+      "name": "catalog-ops",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8124"],
+      "port": 8124
+    },
+    {
+      "name": "coupang-ops",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8125", "--directory", "../coupang-ops"],
+      "port": 8125
+    },
+    {
+      "name": "billiards",
+      "runtimeExecutable": "python3",
+      "runtimeArgs": ["-m", "http.server", "8777", "--directory", "../billiards-lesson"],
+      "port": 8777
     }
   ]
 }
